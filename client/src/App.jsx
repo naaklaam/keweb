@@ -123,7 +123,7 @@ export default function App() {
     setCurrentTime(newTime);
   };
 
-  // MediaSession integration (Hardware & Android Notification control)
+  // MediaSession integration & iOS Background Audio Keepalive
   useEffect(() => {
     if ('mediaSession' in navigator && currentSong) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -132,6 +132,8 @@ export default function App() {
         album: currentSong.album || 'Unknown Album',
         artwork: currentSong.has_cover ? [{ src: `/api/cover/${currentSong.id}`, sizes: '512x512', type: currentSong.cover_mime || 'image/jpeg' }] : []
       });
+
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
 
       navigator.mediaSession.setActionHandler('play', () => {
         if (audioRef.current) {
@@ -147,10 +149,12 @@ export default function App() {
       });
       navigator.mediaSession.setActionHandler('previoustrack', playPrev);
       navigator.mediaSession.setActionHandler('nexttrack', playNext);
-      navigator.mediaSession.setActionHandler('seekbackward', () => seek(-5));
-      navigator.mediaSession.setActionHandler('seekforward', () => seek(5));
+      try {
+        navigator.mediaSession.setActionHandler('seekbackward', () => seek(-5));
+        navigator.mediaSession.setActionHandler('seekforward', () => seek(5));
+      } catch (e) {}
     }
-  }, [currentSong]);
+  }, [currentSong, isPlaying]);
 
   // Global Keyboard Shortcuts (kew style)
   useEffect(() => {
@@ -230,10 +234,27 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-mono overflow-hidden">
-      {/* HTML5 Audio Element */}
+      {/* HTML5 Audio Element with iOS background playback optimizations */}
       <audio
         ref={audioRef}
-        onTimeUpdate={() => setCurrentTime(audioRef.current ? audioRef.current.currentTime : 0)}
+        playsInline
+        preload="auto"
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onTimeUpdate={() => {
+          if (audioRef.current) {
+            setCurrentTime(audioRef.current.currentTime);
+            if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession && duration > 0) {
+              try {
+                navigator.mediaSession.setPositionState({
+                  duration: duration,
+                  playbackRate: audioRef.current.playbackRate || 1,
+                  position: Math.min(audioRef.current.currentTime, duration)
+                });
+              } catch (e) {}
+            }
+          }
+        }}
         onLoadedMetadata={() => setDuration(audioRef.current ? audioRef.current.duration : 0)}
         onEnded={playNext}
       />

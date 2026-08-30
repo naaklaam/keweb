@@ -29,7 +29,21 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
     }
   }, [audioRef]);
 
-  // Render Visualizer animation loop
+  // Handle Visibility Change & iOS Background Audio Context State
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isPlaying) {
+        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+          audioCtxRef.current.resume().catch(() => {});
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isPlaying]);
+
+  // Render Visualizer animation loop (paused when tab hidden to save battery & prevent WebKit suspension)
   useEffect(() => {
     let animId;
     const canvas = canvasRef.current;
@@ -40,6 +54,12 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
     const dataArray = new Uint8Array(bufferLength);
 
     const renderFrame = () => {
+      // Pause drawing frames if document is hidden (backgrounded)
+      if (document.visibilityState === 'hidden') {
+        animId = requestAnimationFrame(renderFrame);
+        return;
+      }
+
       animId = requestAnimationFrame(renderFrame);
       analyserRef.current.getByteFrequencyData(dataArray);
 
@@ -63,8 +83,8 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
     };
 
     if (isPlaying) {
-      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume();
+      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended' && document.visibilityState === 'visible') {
+        audioCtxRef.current.resume().catch(() => {});
       }
       renderFrame();
     } else {
