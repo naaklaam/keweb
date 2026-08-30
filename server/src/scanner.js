@@ -17,6 +17,60 @@ const FOLDER_COVER_NAMES = [
   'album.jpg', 'album.jpeg', 'album.png', 'album.webp'
 ];
 
+function extractLyricsFromMetadata(metadata) {
+  const common = metadata.common || {};
+  const native = metadata.native || {};
+
+  let lyricsStr = null;
+
+  // 1. Try common.lyrics
+  if (common.lyrics && common.lyrics.length > 0) {
+    const raw = common.lyrics;
+    if (Array.isArray(raw)) {
+      const parts = raw.map(item => {
+        if (typeof item === 'string') return item;
+        if (item && item.text) return item.text;
+        if (item && item.syncText && Array.isArray(item.syncText)) {
+          return item.syncText.map(s => s.text).join('\n');
+        }
+        return '';
+      }).filter(Boolean);
+      if (parts.length > 0) lyricsStr = parts.join('\n');
+    } else if (typeof raw === 'string') {
+      lyricsStr = raw;
+    }
+  }
+
+  // 2. Try native VORBIS_COMMENT or ID3 tags if not found yet
+  if (!lyricsStr && native['VORBIS_COMMENT']) {
+    const lyricTag = native['VORBIS_COMMENT'].find(tag =>
+      ['LYRICS', 'UNSYNCEDLYRICS', 'LYRICS_TEXT', 'USLT'].includes(tag.id.toUpperCase())
+    );
+    if (lyricTag && lyricTag.value) {
+      lyricsStr = lyricTag.value;
+    }
+  }
+
+  if (!lyricsStr) return null;
+
+  // If lyrics is a JSON string formatted by some taggers (e.g. {"contentType":1,"text":"...","syncText":[...]})
+  if (typeof lyricsStr === 'string' && lyricsStr.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(lyricsStr);
+      if (parsed.text && parsed.text.trim()) {
+        return parsed.text.trim();
+      }
+      if (parsed.syncText && Array.isArray(parsed.syncText) && parsed.syncText.length > 0) {
+        return parsed.syncText.map(s => s.text).filter(Boolean).join('\n');
+      }
+    } catch (e) {
+      // Not JSON, return as is
+    }
+  }
+
+  return typeof lyricsStr === 'string' && lyricsStr.trim() ? lyricsStr.trim() : null;
+}
+
 async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
   if (!dirPath) {
     console.error('[Scanner] No directory path specified and MUSIC_DIR environment variable is not set.');
@@ -38,11 +92,11 @@ async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
     INSERT INTO songs (
       filepath, filename, title, artist, album, track_no, year, genre,
       duration, sample_rate, bits_per_sample, bitrate, channels, lossless, container,
-      has_cover, cover_mime, mtime
+      has_cover, cover_mime, lyrics, mtime
     ) VALUES (
       ?, ?, ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?, ?, ?,
-      ?, ?, ?
+      ?, ?, ?, ?
     )
     ON CONFLICT(filepath) DO UPDATE SET
       title=excluded.title,
@@ -58,6 +112,7 @@ async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
       channels=excluded.channels,
       has_cover=excluded.has_cover,
       cover_mime=excluded.cover_mime,
+      lyrics=excluded.lyrics,
       mtime=excluded.mtime
   `);
 
@@ -84,6 +139,8 @@ async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
       const bitsPerSample = format.bitsPerSample || 16;
       const bitrate = format.bitrate || 0;
       const channels = format.numberOfChannels || 2;
+
+      const lyrics = extractLyricsFromMetadata(metadata);
 
       let hasCover = 0;
       let coverMime = null;
@@ -147,6 +204,7 @@ async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
         'FLAC',
         hasCover,
         coverMime,
+        lyrics,
         mtime
       );
 

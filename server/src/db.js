@@ -35,6 +35,7 @@ db.exec(`
     container TEXT DEFAULT 'FLAC',
     has_cover INTEGER DEFAULT 0,
     cover_mime TEXT,
+    lyrics TEXT,
     mtime INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -60,5 +61,12 @@ db.exec(`
     FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
   );
 `);
+
+// Add lyrics column if upgrading existing database
+try {
+  db.exec('ALTER TABLE songs ADD COLUMN lyrics TEXT;');
+} catch (e) {
+  // Column already exists
+}
 
 module.exports = db;

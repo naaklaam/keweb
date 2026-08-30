@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
-import { Search, Play, Plus, Music } from 'lucide-react';
+import { Search, Plus, Play, Disc, Music2 } from 'lucide-react';
 
 export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSong }) {
-  const [query, setQuery] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const results = query.trim() === '' ? [] : songs.filter(song => {
-    const q = query.toLowerCase();
+  const filteredSongs = searchTerm.trim() === '' ? [] : songs.filter(song => {
+    const term = searchTerm.toLowerCase();
     return (
-      (song.title && song.title.toLowerCase().includes(q)) ||
-      (song.artist && song.artist.toLowerCase().includes(q)) ||
-      (song.album && song.album.toLowerCase().includes(q)) ||
-      (song.filename && song.filename.toLowerCase().includes(q))
+      (song.title && song.title.toLowerCase().includes(term)) ||
+      (song.artist && song.artist.toLowerCase().includes(term)) ||
+      (song.album && song.album.toLowerCase().includes(term)) ||
+      (song.filename && song.filename.toLowerCase().includes(term))
     );
   });
 
-  const formatDuration = (secs) => {
+  const formatTime = (secs) => {
     if (!secs) return '0:00';
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
@@ -22,81 +22,90 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 font-mono text-xs text-slate-300">
-      {/* Search Input Toolbar */}
-      <div className="p-3 border-b border-slate-800 bg-slate-900/60">
-        <div className="relative max-w-xl mx-auto">
-          <Search size={16} className="absolute left-3 top-3 text-cyan-400" />
+    <div className="flex flex-col h-full overflow-hidden p-4 md:p-6 space-y-4 max-w-4xl mx-auto w-full">
+      {/* Search Input Box Header */}
+      <div className="glass-panel p-6 rounded-3xl flex flex-col space-y-3">
+        <h2 className="text-lg font-extrabold text-white">SEARCH MUSIC LIBRARY</h2>
+        <div className="relative">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" />
           <input
             type="text"
+            placeholder="Ketik judul lagu, artist, atau nama album..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             autoFocus
-            placeholder="Type artist, song title, or album name to search..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-slate-950 border-2 border-cyan-800 focus:border-cyan-400 rounded-md pl-10 pr-4 py-2 text-cyan-300 placeholder-slate-600 focus:outline-none font-mono text-xs shadow-lg shadow-cyan-950/40"
+            className="w-full bg-slate-900/90 border border-white/10 rounded-2xl pl-12 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors shadow-inner"
           />
         </div>
       </div>
 
-      {/* Results Listing */}
-      <div className="flex-1 overflow-y-auto">
-        {query.trim() === '' ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-600 space-y-2 p-6">
-            <Search size={36} strokeWidth={1} />
-            <p className="font-mono text-sm">Enter search term above.</p>
-            <p className="text-[11px] text-slate-700">Searches through all 700+ FLAC tracks instantly.</p>
-          </div>
-        ) : results.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-600 space-y-2 p-6">
-            <Music size={36} strokeWidth={1} />
-            <p className="font-mono text-sm">No matches found for "{query}".</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-900">
-            {results.map((song, idx) => {
+      {/* Search Results List */}
+      <div className="glass-panel rounded-3xl flex-1 overflow-hidden flex flex-col">
+        <div className="overflow-y-auto flex-1 p-3 sm:p-4 space-y-2">
+          {searchTerm.trim() === '' ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-3">
+              <Search size={48} className="text-slate-700" />
+              <p className="text-sm font-semibold">Ketik kata kunci untuk mencari di koleksi FLAC.</p>
+            </div>
+          ) : filteredSongs.length > 0 ? (
+            filteredSongs.map((song, index) => {
               const isCurrent = currentSong && currentSong.id === song.id;
-
               return (
                 <div
                   key={song.id}
-                  className={`flex items-center justify-between p-2.5 hover:bg-slate-900 transition group ${
-                    isCurrent ? 'bg-cyan-950/40 text-cyan-300 font-bold border-l-2 border-cyan-400' : ''
+                  onClick={() => onPlaySong(song)}
+                  className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all ${
+                    isCurrent
+                      ? 'bg-cyan-500/15 border border-cyan-500/30 text-white shadow-md'
+                      : 'hover:bg-white/5 border border-transparent text-slate-300'
                   }`}
                 >
-                  <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    <span className="text-slate-500 w-6 text-center">{idx + 1}</span>
+                  <div className="flex items-center space-x-4 min-w-0 flex-1">
+                    {/* Album Art Thumbnail */}
+                    <div className="w-12 h-12 rounded-xl bg-slate-950 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                      {song.has_cover ? (
+                        <img src={`/api/cover/${song.id}`} alt={song.album} className="w-full h-full object-cover" />
+                      ) : (
+                        <Disc size={22} className="text-slate-700" />
+                      )}
+                    </div>
+
                     <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-slate-200 truncate group-hover:text-cyan-400 transition">
+                      <h3 className={`text-sm font-bold truncate ${isCurrent ? 'text-cyan-300' : 'text-slate-100'}`}>
                         {song.title || song.filename}
-                      </div>
-                      <div className="text-[10px] text-slate-500 truncate">
-                        {song.artist} — {song.album} ({song.bits_per_sample || 16}-bit FLAC)
-                      </div>
+                      </h3>
+                      <p className="text-xs text-slate-400 truncate">
+                        {song.artist || 'Unknown Artist'} • {song.album || 'Unknown Album'}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 pl-3">
-                    <span className="text-slate-400 text-[11px] mr-2">{formatDuration(song.duration)}</span>
+                  <div className="flex items-center space-x-3 ml-2">
+                    <span className="text-xs font-semibold text-slate-400 font-mono">
+                      {formatTime(song.duration)}
+                    </span>
+
                     <button
-                      onClick={() => onPlaySong(song)}
-                      className="p-1.5 rounded bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-800 transition"
-                      title="Play Now"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddToQueue(song);
+                      }}
+                      title="Tambah ke Queue"
+                      className="p-2 rounded-xl glass-pill text-slate-400 hover:text-cyan-300"
                     >
-                      <Play size={12} fill="currentColor" />
-                    </button>
-                    <button
-                      onClick={() => onAddToQueue(song)}
-                      className="p-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-700 transition"
-                      title="Add to Queue"
-                    >
-                      <Plus size={12} />
+                      <Plus size={14} />
                     </button>
                   </div>
                 </div>
               );
-            })}
-          </div>
-        )}
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-3">
+              <Music2 size={48} className="text-slate-700" />
+              <p className="text-sm font-semibold">Tidak ada lagu yang cocok dengan "{searchTerm}".</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

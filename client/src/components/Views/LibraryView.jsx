@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { Play, Plus, ArrowUpDown, Disc, Music, Search, Filter } from 'lucide-react';
+import { Play, Plus, Search, Disc, ArrowUpDown, Music2, ShieldCheck } from 'lucide-react';
 
 export default function LibraryView({ songs, onPlaySong, onAddToQueue, currentSong }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('title');
+  const [sortField, setSortField] = useState('title');
   const [sortOrder, setSortOrder] = useState('asc');
 
-  // Filter songs
-  const filtered = songs.filter(song => {
+  const filteredSongs = songs.filter(song => {
     const term = searchTerm.toLowerCase();
     return (
       (song.title && song.title.toLowerCase().includes(term)) ||
@@ -17,10 +16,9 @@ export default function LibraryView({ songs, onPlaySong, onAddToQueue, currentSo
     );
   });
 
-  // Sort songs
-  const sorted = [...filtered].sort((a, b) => {
-    let valA = a[sortBy] || '';
-    let valB = b[sortBy] || '';
+  const sortedSongs = [...filteredSongs].sort((a, b) => {
+    let valA = a[sortField] || '';
+    let valB = b[sortField] || '';
 
     if (typeof valA === 'string') valA = valA.toLowerCase();
     if (typeof valB === 'string') valB = valB.toLowerCase();
@@ -31,15 +29,15 @@ export default function LibraryView({ songs, onPlaySong, onAddToQueue, currentSo
   });
 
   const toggleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    if (sortField === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortBy(field);
+      setSortField(field);
       setSortOrder('asc');
     }
   };
 
-  const formatDuration = (secs) => {
+  const formatTime = (secs) => {
     if (!secs) return '0:00';
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
@@ -47,168 +45,125 @@ export default function LibraryView({ songs, onPlaySong, onAddToQueue, currentSo
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 font-mono text-xs text-slate-300">
-      {/* Top Filter & Sort Control Toolbar */}
-      <div className="p-2 border-b border-slate-800 bg-slate-900/60 flex flex-wrap items-center justify-between gap-2">
-        {/* Search Bar */}
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500" />
+    <div className="flex flex-col h-full overflow-hidden p-4 md:p-6 space-y-4">
+      {/* Search Bar & Filter Options */}
+      <div className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* Search Input */}
+        <div className="relative w-full sm:w-80">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Filter library (Title, Artist, Album)..."
+            placeholder="Cari lagu, artist, atau album..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded pl-8 pr-3 py-1.5 text-cyan-400 placeholder-slate-600 focus:outline-none focus:border-cyan-500 text-xs"
+            className="w-full bg-slate-900/90 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors"
           />
         </div>
 
-        {/* Sorting TUI Buttons */}
-        <div className="flex items-center space-x-1 text-[11px] overflow-x-auto no-scrollbar">
-          <span className="text-slate-500 flex items-center mr-1">
-            <Filter size={12} className="mr-1" /> Sort:
+        {/* Sort Pill Buttons */}
+        <div className="flex items-center space-x-2 text-xs overflow-x-auto w-full sm:w-auto">
+          <span className="text-slate-400 font-semibold mr-1 flex items-center space-x-1">
+            <ArrowUpDown size={13} />
+            <span>Urutkan:</span>
           </span>
-          
-          <button
-            onClick={() => toggleSort('title')}
-            className={`px-2 py-1 rounded border transition ${
-              sortBy === 'title' ? 'bg-cyan-950 border-cyan-400 text-cyan-300 font-bold' : 'border-slate-800 bg-slate-900 text-slate-400'
-            }`}
-          >
-            Title {sortBy === 'title' && (sortOrder === 'asc' ? '▲' : '▼')}
-          </button>
-
-          <button
-            onClick={() => toggleSort('artist')}
-            className={`px-2 py-1 rounded border transition ${
-              sortBy === 'artist' ? 'bg-cyan-950 border-cyan-400 text-cyan-300 font-bold' : 'border-slate-800 bg-slate-900 text-slate-400'
-            }`}
-          >
-            Artist {sortBy === 'artist' && (sortOrder === 'asc' ? '▲' : '▼')}
-          </button>
-
-          <button
-            onClick={() => toggleSort('album')}
-            className={`px-2 py-1 rounded border transition ${
-              sortBy === 'album' ? 'bg-cyan-950 border-cyan-400 text-cyan-300 font-bold' : 'border-slate-800 bg-slate-900 text-slate-400'
-            }`}
-          >
-            Album {sortBy === 'album' && (sortOrder === 'asc' ? '▲' : '▼')}
-          </button>
-
-          <button
-            onClick={() => toggleSort('duration')}
-            className={`px-2 py-1 rounded border transition ${
-              sortBy === 'duration' ? 'bg-cyan-950 border-cyan-400 text-cyan-300 font-bold' : 'border-slate-800 bg-slate-900 text-slate-400'
-            }`}
-          >
-            Duration {sortBy === 'duration' && (sortOrder === 'asc' ? '▲' : '▼')}
-          </button>
-
-          <button
-            onClick={() => toggleSort('bits_per_sample')}
-            className={`px-2 py-1 rounded border transition ${
-              sortBy === 'bits_per_sample' ? 'bg-cyan-950 border-cyan-400 text-cyan-300 font-bold' : 'border-slate-800 bg-slate-900 text-slate-400'
-            }`}
-          >
-            Bitrate {sortBy === 'bits_per_sample' && (sortOrder === 'asc' ? '▲' : '▼')}
-          </button>
+          {[
+            { id: 'title', label: 'Judul' },
+            { id: 'artist', label: 'Artist' },
+            { id: 'album', label: 'Album' },
+            { id: 'duration', label: 'Durasi' },
+            { id: 'bits_per_sample', label: 'Hi-Res' }
+          ].map(field => (
+            <button
+              key={field.id}
+              onClick={() => toggleSort(field.id)}
+              className={`px-3 py-1.5 rounded-xl font-semibold transition-all ${
+                sortField === field.id
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20'
+                  : 'glass-pill text-slate-400 hover:text-white'
+              }`}
+            >
+              {field.label} {sortField === field.id ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Songs TUI Table */}
-      <div className="flex-1 overflow-y-auto">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-900 border-b border-slate-800 text-slate-400 text-[11px] sticky top-0 uppercase tracking-wider">
-            <tr>
-              <th className="py-2 px-3 w-10 text-center">#</th>
-              <th className="py-2 px-3">Title</th>
-              <th className="py-2 px-3 hidden sm:table-cell">Artist</th>
-              <th className="py-2 px-3 hidden md:table-cell">Album</th>
-              <th className="py-2 px-3 hidden lg:table-cell text-center">FLAC Spec</th>
-              <th className="py-2 px-3 text-right">Time</th>
-              <th className="py-2 px-3 w-16 text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-900">
-            {sorted.length === 0 ? (
-              <tr>
-                <td colSpan="7" className="py-8 text-center text-slate-600 font-mono">
-                  No FLAC tracks found matching search term.
-                </td>
-              </tr>
-            ) : (
-              sorted.map((song, idx) => {
-                const isCurrent = currentSong && currentSong.id === song.id;
-                const isHiRes = song.bits_per_sample > 16 || song.sample_rate > 44100;
+      {/* Song Table & List */}
+      <div className="glass-panel rounded-3xl flex-1 overflow-hidden flex flex-col">
+        <div className="overflow-y-auto flex-1 p-2 sm:p-4 space-y-1.5">
+          {sortedSongs.length > 0 ? (
+            sortedSongs.map((song, index) => {
+              const isCurrent = currentSong && currentSong.id === song.id;
+              const isHiRes = song.bits_per_sample > 16 || song.sample_rate > 44100;
+              return (
+                <div
+                  key={song.id}
+                  onClick={() => onPlaySong(song)}
+                  className={`group flex items-center justify-between p-2.5 sm:p-3 rounded-2xl cursor-pointer transition-all duration-200 ${
+                    isCurrent
+                      ? 'bg-cyan-500/15 border border-cyan-500/30 text-white shadow-md'
+                      : 'hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  {/* Left: Thumbnail & Info */}
+                  <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                    <span className="w-6 text-center text-xs font-bold text-slate-500 group-hover:text-cyan-400">
+                      {isCurrent ? '▶' : index + 1}
+                    </span>
 
-                return (
-                  <tr
-                    key={song.id}
-                    className={`hover:bg-slate-900/80 group transition ${
-                      isCurrent ? 'bg-cyan-950/40 text-cyan-300 font-bold border-l-2 border-cyan-400' : ''
-                    }`}
-                  >
-                    <td className="py-2 px-3 text-center text-slate-500 font-mono">
-                      {isCurrent ? '▶' : idx + 1}
-                    </td>
-                    
-                    <td className="py-2 px-3">
-                      <div className="flex flex-col">
-                        <span className={`font-semibold truncate max-w-xs md:max-w-md ${isCurrent ? 'text-cyan-300 text-glow' : 'text-slate-200'}`}>
-                          {song.title || song.filename}
-                        </span>
-                        <span className="text-[10px] text-slate-500 sm:hidden truncate">
-                          {song.artist} — {song.album}
-                        </span>
-                      </div>
-                    </td>
+                    {/* Album Art Thumbnail */}
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-slate-950 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center relative">
+                      {song.has_cover ? (
+                        <img src={`/api/cover/${song.id}`} alt={song.album} className="w-full h-full object-cover" />
+                      ) : (
+                        <Disc size={22} className="text-slate-700" />
+                      )}
+                    </div>
 
-                    <td className="py-2 px-3 hidden sm:table-cell text-slate-400 truncate max-w-[150px]">
-                      {song.artist || 'Unknown'}
-                    </td>
+                    <div className="min-w-0 flex-1">
+                      <h3 className={`text-xs sm:text-sm font-bold truncate ${isCurrent ? 'text-cyan-300' : 'text-slate-100'}`}>
+                        {song.title || song.filename}
+                      </h3>
+                      <p className="text-[11px] sm:text-xs text-slate-400 truncate">
+                        {song.artist || 'Unknown Artist'} • <span className="text-slate-500">{song.album || 'Unknown Album'}</span>
+                      </p>
+                    </div>
+                  </div>
 
-                    <td className="py-2 px-3 hidden md:table-cell text-slate-500 truncate max-w-[150px]">
-                      {song.album || 'Unknown'}
-                    </td>
-
-                    <td className="py-2 px-3 hidden lg:table-cell text-center">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] border ${
-                        isHiRes
-                          ? 'bg-purple-950 border-purple-800 text-purple-300'
-                          : 'bg-slate-900 border-slate-800 text-slate-400'
-                      }`}>
-                        {song.bits_per_sample || 16}-bit / {Math.round((song.sample_rate || 44100) / 1000)}kHz
+                  {/* Right: Spec Badges, Duration & Actions */}
+                  <div className="flex items-center space-x-3 sm:space-x-4 ml-2">
+                    {isHiRes && (
+                      <span className="hidden md:flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[10px] font-bold">
+                        <ShieldCheck size={11} />
+                        <span>{song.bits_per_sample || 24}-BIT</span>
                       </span>
-                    </td>
+                    )}
 
-                    <td className="py-2 px-3 text-right text-slate-400 font-mono">
-                      {formatDuration(song.duration)}
-                    </td>
+                    <span className="text-xs font-semibold text-slate-400 font-mono">
+                      {formatTime(song.duration)}
+                    </span>
 
-                    <td className="py-2 px-3 text-center">
-                      <div className="flex items-center justify-center space-x-1">
-                        <button
-                          onClick={() => onPlaySong(song)}
-                          className="p-1 rounded hover:bg-cyan-950 text-cyan-400 border border-transparent hover:border-cyan-800 transition"
-                          title="Play Track Now"
-                        >
-                          <Play size={12} fill="currentColor" />
-                        </button>
-                        <button
-                          onClick={() => onAddToQueue(song)}
-                          className="p-1 rounded hover:bg-slate-800 text-slate-400 border border-transparent hover:border-slate-700 transition"
-                          title="Add to Queue"
-                        >
-                          <Plus size={12} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddToQueue(song);
+                      }}
+                      title="Tambah ke Queue"
+                      className="p-2 rounded-xl glass-pill text-slate-400 hover:text-cyan-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-3">
+              <Music2 size={48} className="text-slate-700" />
+              <p className="text-sm font-semibold">Tidak ada lagu yang cocok dengan pencarian.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

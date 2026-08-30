@@ -43,7 +43,7 @@ app.get('/api/songs', (req, res) => {
   const sortColumn = validSortFields.includes(sort) ? sort : 'title';
   const sortOrder = order.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
-  let query = 'SELECT id, filename, title, artist, album, track_no, year, genre, duration, sample_rate, bits_per_sample, bitrate, channels, lossless, container, has_cover FROM songs';
+  let query = 'SELECT id, filename, title, artist, album, track_no, year, genre, duration, sample_rate, bits_per_sample, bitrate, channels, lossless, container, has_cover, lyrics FROM songs';
   const params = [];
 
   if (search) {
@@ -89,13 +89,15 @@ app.get('/api/stats', (req, res) => {
     const totalArtists = db.prepare('SELECT COUNT(DISTINCT artist) as count FROM songs').get().count;
     const totalAlbums = db.prepare('SELECT COUNT(DISTINCT album) as count FROM songs').get().count;
     const hiResCount = db.prepare('SELECT COUNT(*) as count FROM songs WHERE bits_per_sample > 16 OR sample_rate > 44100').get().count;
+    const lyricsCount = db.prepare('SELECT COUNT(*) as count FROM songs WHERE lyrics IS NOT NULL AND lyrics != ""').get().count;
 
     res.json({
       totalSongs,
       totalDuration,
       totalArtists,
       totalAlbums,
-      hiResCount
+      hiResCount,
+      lyricsCount
     });
   } catch (err) {
     logger.error('API', 'Error fetching stats', err);

@@ -5,6 +5,7 @@ import PlaylistView from './components/Views/PlaylistView';
 import LibraryView from './components/Views/LibraryView';
 import TrackView from './components/Views/TrackView';
 import SearchView from './components/Views/SearchView';
+import { extractCoverPalette } from './utils/colorExtractor';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('library'); // 'playlist', 'library', 'track', 'search'
@@ -19,6 +20,12 @@ export default function App() {
   const [isShuffle, setIsShuffle] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
 
+  // Dynamic Theme Palette State
+  const [themeStyle, setThemeStyle] = useState({
+    bgGradient: 'radial-gradient(circle at 50% 25%, rgba(56, 189, 248, 0.2) 0%, rgba(8, 11, 17, 0.98) 75%)',
+    accentHex: '#38bdf8'
+  });
+
   const audioRef = useRef(null);
 
   // Fetch library songs & stats on initial load
@@ -32,7 +39,6 @@ export default function App() {
       const res = await fetch('/api/songs');
       const data = await res.json();
       setSongs(data);
-      // Auto-populate queue with all songs by default so user can play directly from playlist
       setQueue(data);
     } catch (e) {
       console.error('Failed to fetch songs:', e);
@@ -51,7 +57,24 @@ export default function App() {
 
   const currentSong = currentQueueIndex >= 0 && currentQueueIndex < queue.length ? queue[currentQueueIndex] : null;
 
-  // Play a song from Library or Search: Jump to its index in queue without wiping queue
+  // Dynamic Palette Extraction when currentSong changes
+  useEffect(() => {
+    if (currentSong && currentSong.has_cover) {
+      extractCoverPalette(`/api/cover/${currentSong.id}`).then((palette) => {
+        setThemeStyle({
+          bgGradient: palette.bgGradient,
+          accentHex: palette.accentHex
+        });
+      });
+    } else {
+      setThemeStyle({
+        bgGradient: 'radial-gradient(circle at 50% 25%, rgba(56, 189, 248, 0.2) 0%, rgba(8, 11, 17, 0.98) 75%)',
+        accentHex: '#38bdf8'
+      });
+    }
+  }, [currentSong]);
+
+  // Play a song from Library or Search
   const handlePlaySong = (song) => {
     let targetQueue = queue;
     if (targetQueue.length === 0 && songs.length > 0) {
@@ -156,10 +179,9 @@ export default function App() {
     }
   }, [currentSong, isPlaying]);
 
-  // Global Keyboard Shortcuts (kew style)
+  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Don't intercept shortcuts when typing in search / input box
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
 
       switch (e.key) {
@@ -233,7 +255,10 @@ export default function App() {
   }, [currentQueueIndex]);
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 text-slate-100 font-mono overflow-hidden">
+    <div
+      className="flex flex-col h-screen text-slate-100 font-sans overflow-hidden transition-all duration-1000"
+      style={{ background: themeStyle.bgGradient }}
+    >
       {/* HTML5 Audio Element with iOS background playback optimizations */}
       <audio
         ref={audioRef}
@@ -259,7 +284,7 @@ export default function App() {
         onEnded={playNext}
       />
 
-      {/* Top Header & Status */}
+      {/* Top Navigation Header */}
       <TerminalHeader
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -322,7 +347,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Bottom Virtual TUI Keypad for Mobile & Touch Controls */}
+      {/* Bottom Player Controls Bar */}
       <VirtualKeypad
         activeTab={activeTab}
         setActiveTab={setActiveTab}
