@@ -1,0 +1,18 @@
+{
+  "name": "keweb // FLAC Lossless Music Player",
+  "short_name": "keweb",
+  "description": "High-Performance Lossless FLAC Music Player with Terminal TUI Aesthetic",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0e14",
+  "theme_color": "#0b0e14",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

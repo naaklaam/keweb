@@ -1,0 +1,19 @@
+[Unit]
+Description=keweb Cloudflare Tunnel Remote Daemon
+After=keweb.service
+Wants=keweb.service
+
+[Service]
+Type=simple
+User=jo
+Group=jo
+WorkingDirectory=/home/jo/playering-flac
+EnvironmentFile=/home/jo/playering-flac/.env
+ExecStart=/home/jo/playering-flac/bin/cloudflared tunnel run --token <TOKEN_CLOUDFLARE_KAMU>
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

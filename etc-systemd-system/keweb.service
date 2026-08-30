@@ -1,0 +1,18 @@
+[Unit]
+Description=keweb FLAC Lossless Music Player Server Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=jo
+Group=jo
+WorkingDirectory=/home/jo/playering-flac
+EnvironmentFile=/home/jo/playering-flac/.env
+ExecStart=/usr/bin/node /home/jo/playering-flac/server/src/index.js
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

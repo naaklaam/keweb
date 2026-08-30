@@ -1,0 +1,31 @@
+# Environment & Secrets
+.env
+.env.local
+*.env
+
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build Output
+dist/
+client/dist/
+
+# Binaries & Downloads
+bin/cloudflared
+
+# Local SQLite Database & Cover Art Cache
+server/data/
+*.sqlite
+*.db
+*.db-wal
+*.db-shm
+
+# Log Files
+logs/
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
