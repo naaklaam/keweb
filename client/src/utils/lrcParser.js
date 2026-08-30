@@ -1,49 +1,72 @@
 /**
- * Smart LRC & Unsynced Lyrics Parser Engine
- * Parses timestamped LRC lyrics or generates proportional line timing for plain text lyrics.
+ * Smart LRC & Character-Weighted Lyrics Parser Engine
+ * 1. Millisecond LRC timestamp parser for exact [mm:ss.xx] sync
+ * 2. Character-weighted pacing engine for unsynced plain text lyrics
  */
 export function parseLyrics(rawLyrics, totalDuration = 0) {
   if (!rawLyrics || typeof rawLyrics !== 'string' || !rawLyrics.trim()) {
     return [];
   }
 
-  const lines = rawLyrics.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length === 0) return [];
+  const rawLines = rawLyrics.split('\n').map(l => l.trim()).filter(Boolean);
+  if (rawLines.length === 0) return [];
 
-  const lrcRegex = /^\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\](.*)$/;
   const timestampedLines = [];
-  let hasTimestamps = false;
+  const lrcRegex = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
+  let hasLrcTimestamps = false;
 
-  for (const line of lines) {
-    const match = line.match(lrcRegex);
-    if (match) {
-      hasTimestamps = true;
-      const min = parseInt(match[1], 10);
-      const sec = parseInt(match[2], 10);
-      const ms = match[3] ? parseInt(match[3].padEnd(3, '0'), 10) : 0;
-      const timeInSeconds = min * 60 + sec + ms / 1000;
-      const text = match[4].trim();
+  for (const line of rawLines) {
+    const matches = [...line.matchAll(lrcRegex)];
+    if (matches && matches.length > 0) {
+      hasLrcTimestamps = true;
+      const text = line.replace(lrcRegex, '').trim();
       if (text) {
-        timestampedLines.push({ time: timeInSeconds, text });
+        for (const match of matches) {
+          const min = parseInt(match[1], 10);
+          const sec = parseInt(match[2], 10);
+          const ms = match[3] ? parseInt(match[3].padEnd(3, '0'), 10) : 0;
+          const timeInSeconds = min * 60 + sec + ms / 1000;
+          timestampedLines.push({ time: timeInSeconds, text });
+        }
       }
     }
   }
 
-  if (hasTimestamps && timestampedLines.length > 0) {
+  // 1. If exact LRC timestamps exist, return sorted millisecond timestamped lines
+  if (hasLrcTimestamps && timestampedLines.length > 0) {
     return timestampedLines.sort((a, b) => a.time - b.time);
   }
 
-  // Fallback for Unsynced Plain Text Lyrics:
-  // Distribute estimated line timestamps based on song duration
+  // 2. Fallback for Unsynced Plain Text Lyrics:
+  // Character-Weighted Pacing Engine (longer lines take more time, short lines pass faster)
   const validDuration = totalDuration && totalDuration > 0 ? totalDuration : 180;
-  const startOffset = Math.min(5, validDuration * 0.05); // Start lyrics ~5s into song
-  const usableDuration = Math.max(10, validDuration - startOffset - 5);
-  const timePerLine = usableDuration / lines.length;
+  const startOffset = Math.min(8, validDuration * 0.05); // Skip ~5-8s intro
+  const endOffset = 5;
+  const vocalDuration = Math.max(10, validDuration - startOffset - endOffset);
 
-  return lines.map((text, idx) => ({
-    time: startOffset + idx * timePerLine,
-    text
-  }));
+  const cleanLines = rawLines.filter(l => !l.startsWith('['));
+  if (cleanLines.length === 0) return [];
+
+  const totalChars = cleanLines.reduce((acc, l) => acc + Math.max(1, l.length), 0);
+
+  let accumulatedTime = startOffset;
+  const weightedLines = [];
+
+  for (let i = 0; i < cleanLines.length; i++) {
+    const lineText = cleanLines[i];
+    const charCount = Math.max(1, lineText.length);
+    // Proportionally allocate duration by line character weight
+    const lineDuration = Math.max(1.8, (charCount / totalChars) * vocalDuration);
+
+    weightedLines.push({
+      time: accumulatedTime,
+      text: lineText
+    });
+
+    accumulatedTime += lineDuration;
+  }
+
+  return weightedLines;
 }
 
 /**

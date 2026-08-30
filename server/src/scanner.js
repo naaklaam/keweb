@@ -17,13 +17,26 @@ const FOLDER_COVER_NAMES = [
   'album.jpg', 'album.jpeg', 'album.png', 'album.webp'
 ];
 
-function extractLyricsFromMetadata(metadata) {
+function extractLyricsFromMetadata(filePath, metadata) {
+  // 1. Primary: Check for external .lrc file next to the FLAC file (exact match or same basename)
+  const lrcCandidate = filePath.replace(/\.flac$/i, '.lrc');
+  if (fs.existsSync(lrcCandidate)) {
+    try {
+      const lrcContent = fs.readFileSync(lrcCandidate, 'utf-8');
+      if (lrcContent && lrcContent.trim()) {
+        return lrcContent.trim();
+      }
+    } catch (e) {
+      // Ignore read error
+    }
+  }
+
+  // 2. Secondary: Check embedded FLAC metadata tags
   const common = metadata.common || {};
   const native = metadata.native || {};
 
   let lyricsStr = null;
 
-  // 1. Try common.lyrics
   if (common.lyrics && common.lyrics.length > 0) {
     const raw = common.lyrics;
     if (Array.isArray(raw)) {
@@ -41,7 +54,6 @@ function extractLyricsFromMetadata(metadata) {
     }
   }
 
-  // 2. Try native VORBIS_COMMENT or ID3 tags if not found yet
   if (!lyricsStr && native['VORBIS_COMMENT']) {
     const lyricTag = native['VORBIS_COMMENT'].find(tag =>
       ['LYRICS', 'UNSYNCEDLYRICS', 'LYRICS_TEXT', 'USLT'].includes(tag.id.toUpperCase())
@@ -53,7 +65,7 @@ function extractLyricsFromMetadata(metadata) {
 
   if (!lyricsStr) return null;
 
-  // If lyrics is a JSON string formatted by some taggers (e.g. {"contentType":1,"text":"...","syncText":[...]})
+  // If lyrics is a JSON string formatted by some taggers
   if (typeof lyricsStr === 'string' && lyricsStr.trim().startsWith('{')) {
     try {
       const parsed = JSON.parse(lyricsStr);
@@ -140,7 +152,7 @@ async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
       const bitrate = format.bitrate || 0;
       const channels = format.numberOfChannels || 2;
 
-      const lyrics = extractLyricsFromMetadata(metadata);
+      const lyrics = extractLyricsFromMetadata(filePath, metadata);
 
       let hasCover = 0;
       let coverMime = null;
