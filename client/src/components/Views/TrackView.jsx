@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { Disc, Music2, FileText, Zap, ShieldCheck, Layers, Radio, Volume2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Disc, Music2, FileText, Zap, ShieldCheck, Layers, RotateCcw } from 'lucide-react';
+import { parseLyrics, getActiveLyricIndex } from '../../utils/lrcParser';
 
 export default function TrackView({ song, isPlaying, audioRef, currentTime, duration, onSeek }) {
   const [activeSubTab, setActiveSubTab] = useState('lyrics'); // 'lyrics' or 'specs'
+  const activeLineRef = useRef(null);
 
   const formatTime = (secs) => {
-    if (!secs) return '0:00';
+    if (!secs || isNaN(secs)) return '0:00';
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
@@ -13,13 +15,26 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
 
   const isHiRes = song && (song.bits_per_sample > 16 || song.sample_rate > 44100);
 
-  // Parse lyrics into clean readable lines
-  const lyricsLines = song && song.lyrics ? song.lyrics.split('\n').filter(line => line.trim().length > 0) : [];
+  // Parse lyrics with timestamps or smart timing estimation
+  const parsedLyrics = song && song.lyrics ? parseLyrics(song.lyrics, duration) : [];
+  const activeLyricIndex = getActiveLyricIndex(parsedLyrics, currentTime);
+
+  // Auto-scroll active lyric line into center view
+  useEffect(() => {
+    if (activeLineRef.current) {
+      activeLineRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }
+  }, [activeLyricIndex]);
+
+  const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-8">
       {song ? (
-        <div className="max-w-4xl mx-auto w-full flex flex-col space-y-8">
+        <div className="max-w-4xl mx-auto w-full flex flex-col space-y-6">
           {/* Main Album Art & Track Info Banner */}
           <div className="glass-panel p-6 sm:p-8 rounded-3xl grid grid-cols-1 md:grid-cols-12 gap-8 items-center relative overflow-hidden">
             {/* Ambient Background Blur Highlight inside Card */}
@@ -71,6 +86,29 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                 <p className="text-slate-400 text-xs sm:text-sm font-medium">{song.album || 'Unknown Album'} {song.year ? `(${song.year})` : ''}</p>
               </div>
 
+              {/* Progress Bar & Menitan Display */}
+              <div className="flex flex-col space-y-2 pt-1">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-cyan-400 font-bold">{formatTime(currentTime)}</span>
+                  <span className="text-slate-400 font-semibold">{formatTime(duration)}</span>
+                </div>
+                <div className="relative flex items-center group">
+                  <input
+                    type="range"
+                    min="0"
+                    max={duration || 100}
+                    step="0.1"
+                    value={currentTime || 0}
+                    onChange={(e) => onSeek && onSeek(parseFloat(e.target.value))}
+                    className="w-full h-2.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-cyan-400 z-10"
+                  />
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 left-0 h-2.5 bg-gradient-to-r from-cyan-500 to-sky-400 rounded-lg pointer-events-none transition-all duration-100"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+
               {/* Technical Specifications Highlights */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                 <div className="glass-pill p-3 rounded-2xl flex flex-col justify-center">
@@ -100,7 +138,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
             </div>
           </div>
 
-          {/* Sub-Tab Navigation: Lyrics vs Detailed Spec Matrix */}
+          {/* Sub-Tab Navigation: Synced Lyrics vs Detailed Spec Matrix */}
           <div className="glass-panel p-6 rounded-3xl flex flex-col space-y-6">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div className="flex items-center space-x-2 bg-slate-900/80 p-1.5 rounded-2xl border border-white/10">
@@ -113,7 +151,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                   }`}
                 >
                   <FileText size={15} />
-                  <span>Lirik Lagu ({lyricsLines.length > 0 ? lyricsLines.length : '0'})</span>
+                  <span>Lirik Lagu ({parsedLyrics.length})</span>
                 </button>
 
                 <button
@@ -129,25 +167,35 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                 </button>
               </div>
 
-              {lyricsLines.length > 0 && (
-                <span className="text-xs text-cyan-400 font-semibold hidden sm:inline-block">
-                  ✓ Embedded Lyrics Loaded
+              {parsedLyrics.length > 0 && (
+                <span className="text-xs text-cyan-400 font-semibold hidden sm:inline-flex items-center space-x-1">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                  <span>Synchronized Lyrics Active</span>
                 </span>
               )}
             </div>
 
-            {/* Tab 1: Lyrics Container */}
+            {/* Tab 1: Synced Lyrics Container with Auto-Scroll & Highlighting */}
             {activeSubTab === 'lyrics' && (
-              <div className="min-h-[300px] max-h-[500px] overflow-y-auto px-4 py-2 flex flex-col space-y-4 text-center sm:text-left">
-                {lyricsLines.length > 0 ? (
-                  lyricsLines.map((line, idx) => (
-                    <p
-                      key={idx}
-                      className="text-base sm:text-lg text-slate-200 hover:text-cyan-300 transition-colors font-medium leading-relaxed"
-                    >
-                      {line}
-                    </p>
-                  ))
+              <div className="min-h-[320px] max-h-[500px] overflow-y-auto px-4 py-4 flex flex-col space-y-4 text-center sm:text-left scroll-smooth">
+                {parsedLyrics.length > 0 ? (
+                  parsedLyrics.map((lineObj, idx) => {
+                    const isActive = idx === activeLyricIndex;
+                    return (
+                      <div
+                        key={idx}
+                        ref={isActive ? activeLineRef : null}
+                        onClick={() => onSeek && onSeek(lineObj.time)}
+                        className={`cursor-pointer transition-all duration-300 p-3 rounded-2xl ${
+                          isActive
+                            ? 'text-cyan-300 font-extrabold text-lg sm:text-2xl bg-cyan-500/15 border-l-4 border-cyan-400 scale-[1.02] shadow-lg shadow-cyan-500/10'
+                            : 'text-slate-400 hover:text-slate-200 text-sm sm:text-base opacity-70 hover:opacity-100 font-medium'
+                        }`}
+                      >
+                        <p>{lineObj.text}</p>
+                      </div>
+                    );
+                  })
                 ) : (
                   <div className="flex flex-col items-center justify-center py-16 text-slate-500 space-y-3">
                     <Music2 size={40} className="text-slate-600" />
