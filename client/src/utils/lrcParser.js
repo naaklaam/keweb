@@ -1,9 +1,9 @@
 /**
  * Smart LRC & Character-Weighted Lyrics Parser Engine
  * 1. Millisecond LRC timestamp parser for exact [mm:ss.xx] sync
- * 2. Character-weighted pacing engine for unsynced plain text lyrics
+ * 2. Character-weighted pacing engine for unsynced plain text lyrics fallback
  */
-export function parseLyrics(rawLyrics, totalDuration = 0) {
+export function parseLyrics(rawLyrics, totalDuration = 0, offset = 0) {
   if (!rawLyrics || typeof rawLyrics !== 'string' || !rawLyrics.trim()) {
     return [];
   }
@@ -25,7 +25,7 @@ export function parseLyrics(rawLyrics, totalDuration = 0) {
           const min = parseInt(match[1], 10);
           const sec = parseInt(match[2], 10);
           const ms = match[3] ? parseInt(match[3].padEnd(3, '0'), 10) : 0;
-          const timeInSeconds = min * 60 + sec + ms / 1000;
+          const timeInSeconds = Math.max(0, min * 60 + sec + ms / 1000 + offset);
           timestampedLines.push({ time: timeInSeconds, text });
         }
       }
@@ -55,11 +55,10 @@ export function parseLyrics(rawLyrics, totalDuration = 0) {
   for (let i = 0; i < cleanLines.length; i++) {
     const lineText = cleanLines[i];
     const charCount = Math.max(1, lineText.length);
-    // Proportionally allocate duration by line character weight
     const lineDuration = Math.max(1.8, (charCount / totalChars) * vocalDuration);
 
     weightedLines.push({
-      time: accumulatedTime,
+      time: accumulatedTime + offset,
       text: lineText
     });
 

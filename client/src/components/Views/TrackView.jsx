@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Disc, Music2, FileText, Zap, ShieldCheck, Layers } from 'lucide-react';
+import { Disc, Music2, FileText, Zap, ShieldCheck, Layers, RefreshCw, Sliders } from 'lucide-react';
 import { parseLyrics, getActiveLyricIndex } from '../../utils/lrcParser';
 
 export default function TrackView({ song, isPlaying, audioRef, currentTime, duration, onSeek }) {
   const [activeSubTab, setActiveSubTab] = useState('lyrics'); // 'lyrics' or 'specs'
+  const [syncedLyricsData, setSyncedLyricsData] = useState(null);
+  const [syncOffset, setSyncOffset] = useState(0); // Offset in seconds (-2.0s to +2.0s)
+  const [isLoadingLrc, setIsLoadingLrc] = useState(false);
   const activeLineRef = useRef(null);
 
   const formatTime = (secs) => {
@@ -15,8 +18,49 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
 
   const isHiRes = song && (song.bits_per_sample > 16 || song.sample_rate > 44100);
 
-  // Parse lyrics with timestamps or smart timing estimation
-  const parsedLyrics = song && song.lyrics ? parseLyrics(song.lyrics, duration) : [];
+  // Auto-fetch online synced LRC lyrics from LRCLIB if local lyrics have no timestamps
+  useEffect(() => {
+    setSyncedLyricsData(null);
+    setSyncOffset(0);
+
+    if (!song) return;
+
+    const hasLocalLrc = song.lyrics && /\[\d{2}:\d{2}/.test(song.lyrics);
+    if (hasLocalLrc) {
+      setSyncedLyricsData(song.lyrics);
+      return;
+    }
+
+    // Attempt auto-fetch from LRCLIB API for exact millisecond synced lyrics
+    if (song.artist && song.title) {
+      setIsLoadingLrc(true);
+      const cleanTitle = song.title.replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').trim();
+      const cleanArtist = song.artist.replace(/\([^)]*\)/g, '').trim();
+      const queryUrl = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(cleanArtist)}&track_name=${encodeURIComponent(cleanTitle)}&duration=${Math.round(duration || song.duration || 0)}`;
+
+      fetch(queryUrl)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.syncedLyrics) {
+            setSyncedLyricsData(data.syncedLyrics);
+          } else {
+            setSyncedLyricsData(song.lyrics || null);
+          }
+        })
+        .catch(() => {
+          setSyncedLyricsData(song.lyrics || null);
+        })
+        .finally(() => {
+          setIsLoadingLrc(false);
+        });
+    } else {
+      setSyncedLyricsData(song.lyrics || null);
+    }
+  }, [song?.id]);
+
+  // Parse lyrics with timestamps & applied sync offset
+  const activeLyricsText = syncedLyricsData || (song ? song.lyrics : '');
+  const parsedLyrics = parseLyrics(activeLyricsText, duration, syncOffset);
   const activeLyricIndex = getActiveLyricIndex(parsedLyrics, currentTime);
 
   // Auto-scroll active lyric line into center view
@@ -143,8 +187,8 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
 
           {/* Sub-Tab Navigation: Lyrics vs Detailed Spec Matrix */}
           <div className="glass-panel p-6 rounded-3xl flex flex-col space-y-6">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center space-x-2 bg-slate-900/80 p-1.5 rounded-2xl border border-white/10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 gap-3">
+              <div className="flex items-center space-x-2 bg-slate-900/80 p-1.5 rounded-2xl border border-white/10 w-fit">
                 <button
                   onClick={() => setActiveSubTab('lyrics')}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
@@ -169,12 +213,53 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                   <span>Informasi Metadata</span>
                 </button>
               </div>
+
+              {/* Sync Calibration Delay Controls */}
+              {activeSubTab === 'lyrics' && parsedLyrics.length > 0 && (
+                <div className="flex items-center space-x-2 text-xs font-mono">
+                  <span className="text-slate-400 font-semibold flex items-center space-x-1">
+                    <Sliders size={13} />
+                    <span>Sync:</span>
+                  </span>
+                  <button
+                    onClick={() => setSyncOffset(prev => parseFloat((prev - 0.5).toFixed(1)))}
+                    className="px-2 py-1 rounded-lg glass-pill text-slate-300 hover:text-white"
+                    title="Percepat Lirik 0.5s"
+                  >
+                    -0.5s
+                  </button>
+                  <span className={`px-2 py-1 rounded-lg ${syncOffset !== 0 ? 'bg-white/20 text-white font-bold' : 'text-slate-400'}`}>
+                    {syncOffset > 0 ? `+${syncOffset}s` : `${syncOffset}s`}
+                  </span>
+                  <button
+                    onClick={() => setSyncOffset(prev => parseFloat((prev + 0.5).toFixed(1)))}
+                    className="px-2 py-1 rounded-lg glass-pill text-slate-300 hover:text-white"
+                    title="Perlambat Lirik 0.5s"
+                  >
+                    +0.5s
+                  </button>
+                  {syncOffset !== 0 && (
+                    <button
+                      onClick={() => setSyncOffset(0)}
+                      className="p-1 rounded-lg glass-pill text-rose-400 hover:text-white"
+                      title="Reset Offset"
+                    >
+                      <RefreshCw size={12} />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Tab 1: Subtle Lyrics Container with ~15% Font Highlighting & Muted Inactive Lines */}
+            {/* Tab 1: Subtle Lyrics Container with ~15% Font Highlighting & Tap-to-Seek */}
             {activeSubTab === 'lyrics' && (
               <div className="min-h-[320px] max-h-[500px] overflow-y-auto px-4 py-4 flex flex-col space-y-4 text-center sm:text-left scroll-smooth">
-                {parsedLyrics.length > 0 ? (
+                {isLoadingLrc ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-slate-400 space-y-3">
+                    <RefreshCw size={32} className="animate-spin text-white" />
+                    <p className="text-xs font-semibold">Mengambil lirik presisi dari cloud database...</p>
+                  </div>
+                ) : parsedLyrics.length > 0 ? (
                   parsedLyrics.map((lineObj, idx) => {
                     const isActive = idx === activeLyricIndex;
                     return (
