@@ -33,9 +33,9 @@ export default function VirtualKeypad({
 
   return (
     <footer className="px-4 py-3 border-t border-white/10 glass-panel z-20 flex flex-col space-y-3">
-      {/* Seek Progress Bar & Time Display */}
+      {/* Minimal Clean Seek Progress Bar (Bright White Passed / Dark Remaining) */}
       <div className="flex items-center space-x-3 text-xs font-mono">
-        <span className="text-cyan-400 font-bold w-10 text-right">{formatTime(currentTime)}</span>
+        <span className="text-white font-medium w-10 text-right">{formatTime(currentTime)}</span>
         
         <div className="relative flex-1 flex items-center group">
           <input
@@ -45,16 +45,18 @@ export default function VirtualKeypad({
             step="0.1"
             value={currentTime || 0}
             onChange={(e) => onSeekTo && onSeekTo(parseFloat(e.target.value))}
-            className="w-full h-2 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-cyan-400 z-10"
+            className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-white z-10 opacity-0 group-hover:opacity-100 transition-opacity"
           />
-          {/* Progress Overlay bar */}
+          {/* Track Background */}
+          <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full h-1.5 bg-white/10 rounded-full pointer-events-none" />
+          {/* Passed Progress Overlay Bar - Bright White */}
           <div
-            className="absolute top-1/2 -translate-y-1/2 left-0 h-2 bg-gradient-to-r from-cyan-500 to-sky-400 rounded-lg pointer-events-none transition-all duration-100"
+            className="absolute top-1/2 -translate-y-1/2 left-0 h-1.5 bg-white rounded-full pointer-events-none transition-all duration-100 shadow-sm"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
 
-        <span className="text-slate-400 font-semibold w-10 text-left">{formatTime(duration)}</span>
+        <span className="text-slate-400 font-medium w-10 text-left">{formatTime(duration)}</span>
       </div>
 
       {/* Control Buttons & Volume Row */}
@@ -65,7 +67,7 @@ export default function VirtualKeypad({
             onClick={toggleShuffle}
             title="Shuffle Mode"
             className={`p-2 rounded-xl transition-all ${
-              isShuffle ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'glass-pill text-slate-400 hover:text-white'
+              isShuffle ? 'bg-white/20 text-white border border-white/30' : 'glass-pill text-slate-400 hover:text-white'
             }`}
           >
             <Shuffle size={16} />
@@ -82,7 +84,7 @@ export default function VirtualKeypad({
           <button
             onClick={togglePlay}
             title={isPlaying ? 'Pause' : 'Play'}
-            className="p-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/25 hover:scale-105 active:scale-95 transition-all"
+            className="p-3.5 rounded-2xl bg-white text-slate-950 font-bold shadow-lg hover:scale-105 active:scale-95 transition-all"
           >
             {isPlaying ? <Pause size={20} className="fill-slate-950" /> : <Play size={20} className="fill-slate-950 ml-0.5" />}
           </button>
@@ -99,7 +101,7 @@ export default function VirtualKeypad({
             onClick={toggleRepeat}
             title="Repeat Mode"
             className={`p-2 rounded-xl transition-all ${
-              isRepeat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'glass-pill text-slate-400 hover:text-white'
+              isRepeat ? 'bg-white/20 text-white border border-white/30' : 'glass-pill text-slate-400 hover:text-white'
             }`}
           >
             <Repeat size={16} />
@@ -110,7 +112,7 @@ export default function VirtualKeypad({
         <div className="flex items-center space-x-2 text-xs font-semibold">
           <button
             onClick={() => seek(-5)}
-            className="px-3 py-1.5 rounded-xl glass-pill text-slate-300 hover:text-cyan-400 transition-all flex items-center space-x-1"
+            className="px-3 py-1.5 rounded-xl glass-pill text-slate-300 hover:text-white transition-all flex items-center space-x-1"
           >
             <RotateCcw size={12} />
             <span>-5s</span>
@@ -118,7 +120,7 @@ export default function VirtualKeypad({
 
           <button
             onClick={() => seek(5)}
-            className="px-3 py-1.5 rounded-xl glass-pill text-slate-300 hover:text-cyan-400 transition-all flex items-center space-x-1"
+            className="px-3 py-1.5 rounded-xl glass-pill text-slate-300 hover:text-white transition-all flex items-center space-x-1"
           >
             <RotateCcw size={12} className="rotate-180" />
             <span>+5s</span>
@@ -140,7 +142,7 @@ export default function VirtualKeypad({
             step="0.01"
             value={volume}
             onChange={(e) => setVolume(parseFloat(e.target.value))}
-            className="w-20 sm:w-28 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+            className="w-20 sm:w-28 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white"
           />
         </div>
       </div>

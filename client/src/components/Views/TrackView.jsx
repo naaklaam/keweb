@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Disc, Music2, FileText, Zap, ShieldCheck, Layers, RotateCcw } from 'lucide-react';
+import { Disc, Music2, FileText, Zap, ShieldCheck, Layers } from 'lucide-react';
 import { parseLyrics, getActiveLyricIndex } from '../../utils/lrcParser';
 
 export default function TrackView({ song, isPlaying, audioRef, currentTime, duration, onSeek }) {
@@ -38,11 +38,11 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
           {/* Main Album Art & Track Info Banner */}
           <div className="glass-panel p-6 sm:p-8 rounded-3xl grid grid-cols-1 md:grid-cols-12 gap-8 items-center relative overflow-hidden">
             {/* Ambient Background Blur Highlight inside Card */}
-            <div className="absolute -top-24 -right-24 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -top-24 -right-24 w-72 h-72 bg-white/5 rounded-full blur-3xl pointer-events-none" />
 
             {/* Left: Album Cover Art */}
             <div className="md:col-span-5 flex justify-center">
-              <div className="relative group w-56 h-56 sm:w-64 sm:h-64 rounded-2xl bg-slate-950 overflow-hidden shadow-2xl shadow-cyan-500/10 border border-white/10 flex items-center justify-center">
+              <div className="relative group w-56 h-56 sm:w-64 sm:h-64 rounded-2xl bg-slate-950 overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center">
                 {song.has_cover ? (
                   <img
                     src={`/api/cover/${song.id}`}
@@ -51,12 +51,12 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center text-slate-600 space-y-3">
-                    <Disc size={96} className={`${isPlaying ? 'animate-spin-slow text-cyan-400' : 'text-slate-700'}`} />
+                    <Disc size={96} className={`${isPlaying ? 'animate-spin-slow text-white' : 'text-slate-700'}`} />
                     <span className="text-xs font-semibold text-slate-500">NO ALBUM ART</span>
                   </div>
                 )}
                 {/* Audio Spec Badge Overlay */}
-                <div className="absolute top-3 right-3 glass-pill px-3 py-1 rounded-full text-xs font-bold text-cyan-300 flex items-center space-x-1.5 shadow-lg">
+                <div className="absolute top-3 right-3 glass-pill px-3 py-1 rounded-full text-xs font-bold text-white flex items-center space-x-1.5 shadow-lg">
                   <Zap size={12} className="text-amber-400 fill-amber-400" />
                   <span>{song.bits_per_sample || 16}-BIT FLAC</span>
                 </div>
@@ -67,8 +67,8 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
             <div className="md:col-span-7 flex flex-col space-y-5">
               <div>
                 <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <span className="px-3 py-1 rounded-full text-xs bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-semibold tracking-wide flex items-center space-x-1.5">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                  <span className="px-3 py-1 rounded-full text-xs bg-white/10 text-white border border-white/20 font-semibold tracking-wide flex items-center space-x-1.5">
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                     <span>NOW PLAYING</span>
                   </span>
                   {isHiRes && (
@@ -82,15 +82,15 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight mb-1">
                   {song.title || song.filename}
                 </h1>
-                <p className="text-cyan-400 font-bold text-base sm:text-lg">{song.artist || 'Unknown Artist'}</p>
+                <p className="text-white/90 font-bold text-base sm:text-lg">{song.artist || 'Unknown Artist'}</p>
                 <p className="text-slate-400 text-xs sm:text-sm font-medium">{song.album || 'Unknown Album'} {song.year ? `(${song.year})` : ''}</p>
               </div>
 
-              {/* Progress Bar & Menitan Display */}
+              {/* Minimal Progress Bar & Menitan Display */}
               <div className="flex flex-col space-y-2 pt-1">
                 <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-cyan-400 font-bold">{formatTime(currentTime)}</span>
-                  <span className="text-slate-400 font-semibold">{formatTime(duration)}</span>
+                  <span className="text-white font-medium">{formatTime(currentTime)}</span>
+                  <span className="text-slate-400 font-medium">{formatTime(duration)}</span>
                 </div>
                 <div className="relative flex items-center group">
                   <input
@@ -100,10 +100,13 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                     step="0.1"
                     value={currentTime || 0}
                     onChange={(e) => onSeek && onSeek(parseFloat(e.target.value))}
-                    className="w-full h-2.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-cyan-400 z-10"
+                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-white z-10 opacity-0 group-hover:opacity-100 transition-opacity"
                   />
+                  {/* Track Background */}
+                  <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full h-2 bg-white/10 rounded-full pointer-events-none" />
+                  {/* Passed Progress Overlay Bar - Bright White */}
                   <div
-                    className="absolute top-1/2 -translate-y-1/2 left-0 h-2.5 bg-gradient-to-r from-cyan-500 to-sky-400 rounded-lg pointer-events-none transition-all duration-100"
+                    className="absolute top-1/2 -translate-y-1/2 left-0 h-2 bg-white rounded-full pointer-events-none transition-all duration-100 shadow-sm"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
@@ -132,13 +135,13 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
 
                 <div className="glass-pill p-3 rounded-2xl flex flex-col justify-center">
                   <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Duration</span>
-                  <span className="text-cyan-300 font-bold text-sm">{formatTime(song.duration)}</span>
+                  <span className="text-white font-bold text-sm">{formatTime(song.duration)}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Sub-Tab Navigation: Synced Lyrics vs Detailed Spec Matrix */}
+          {/* Sub-Tab Navigation: Lyrics vs Detailed Spec Matrix */}
           <div className="glass-panel p-6 rounded-3xl flex flex-col space-y-6">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div className="flex items-center space-x-2 bg-slate-900/80 p-1.5 rounded-2xl border border-white/10">
@@ -146,7 +149,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                   onClick={() => setActiveSubTab('lyrics')}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                     activeSubTab === 'lyrics'
-                      ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                      ? 'bg-white text-slate-950 shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -158,7 +161,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                   onClick={() => setActiveSubTab('specs')}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                     activeSubTab === 'specs'
-                      ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                      ? 'bg-white text-slate-950 shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -166,16 +169,9 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                   <span>Informasi Metadata</span>
                 </button>
               </div>
-
-              {parsedLyrics.length > 0 && (
-                <span className="text-xs text-cyan-400 font-semibold hidden sm:inline-flex items-center space-x-1">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                  <span>Synchronized Lyrics Active</span>
-                </span>
-              )}
             </div>
 
-            {/* Tab 1: Synced Lyrics Container with Auto-Scroll & Highlighting */}
+            {/* Tab 1: Subtle Lyrics Container with ~15% Font Highlighting & Muted Inactive Lines */}
             {activeSubTab === 'lyrics' && (
               <div className="min-h-[320px] max-h-[500px] overflow-y-auto px-4 py-4 flex flex-col space-y-4 text-center sm:text-left scroll-smooth">
                 {parsedLyrics.length > 0 ? (
@@ -186,10 +182,10 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                         key={idx}
                         ref={isActive ? activeLineRef : null}
                         onClick={() => onSeek && onSeek(lineObj.time)}
-                        className={`cursor-pointer transition-all duration-300 p-3 rounded-2xl ${
+                        className={`cursor-pointer transition-all duration-300 py-2.5 px-3 rounded-xl ${
                           isActive
-                            ? 'text-cyan-300 font-extrabold text-lg sm:text-2xl bg-cyan-500/15 border-l-4 border-cyan-400 scale-[1.02] shadow-lg shadow-cyan-500/10'
-                            : 'text-slate-400 hover:text-slate-200 text-sm sm:text-base opacity-70 hover:opacity-100 font-medium'
+                            ? 'text-white font-bold text-lg sm:text-xl scale-[1.03] opacity-100'
+                            : 'text-slate-500 font-medium text-base sm:text-lg opacity-50 hover:opacity-80'
                         }`}
                       >
                         <p>{lineObj.text}</p>
@@ -217,7 +213,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                 </div>
                 <div className="glass-pill p-4 rounded-2xl flex items-center justify-between">
                   <span className="text-slate-400 font-medium">Container / Codec</span>
-                  <span className="text-cyan-300 font-bold">{song.container || 'FLAC'} (Free Lossless Audio Codec)</span>
+                  <span className="text-white font-bold">{song.container || 'FLAC'} (Free Lossless Audio Codec)</span>
                 </div>
                 <div className="glass-pill p-4 rounded-2xl flex items-center justify-between">
                   <span className="text-slate-400 font-medium">Channels</span>
