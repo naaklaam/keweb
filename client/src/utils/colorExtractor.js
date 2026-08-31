@@ -5,9 +5,9 @@ export function extractCoverPalette(imgUrl) {
   return new Promise((resolve) => {
     if (!imgUrl) {
       resolve({
-        accentHex: '#38bdf8',
-        bgGradient: 'radial-gradient(circle at 50% 25%, rgba(56, 189, 248, 0.25) 0%, rgba(10, 14, 23, 0.98) 75%)',
-        glowRgb: '56, 189, 248'
+        accentHex: '#FFC107',
+        bgGradient: 'radial-gradient(circle at 50% 25%, rgba(255, 193, 7, 0.15) 0%, rgba(3, 7, 30, 0.98) 75%)',
+        glowRgb: '255, 193, 7'
       });
       return;
     }
@@ -80,9 +80,9 @@ export function extractCoverPalette(imgUrl) {
 
     img.onerror = () => {
       resolve({
-        accentHex: '#38bdf8',
-        bgGradient: 'radial-gradient(circle at 50% 25%, rgba(56, 189, 248, 0.25) 0%, rgba(10, 14, 23, 0.98) 75%)',
-        glowRgb: '56, 189, 248'
+        accentHex: '#FFC107',
+        bgGradient: 'radial-gradient(circle at 50% 25%, rgba(255, 193, 7, 0.15) 0%, rgba(3, 7, 30, 0.98) 75%)',
+        glowRgb: '255, 193, 7'
       });
     };
   });

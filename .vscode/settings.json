@@ -1,0 +1,201 @@
+{
+  // =============================
+  // EDITOR UMUM
+  // =============================
+
+  // Ukuran font editor
+  "editor.fontSize": 12,
+
+  // Family font editor
+  "editor.fontFamily": "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+
+  // Aktifkan ligatur font (butuh font pendukung seperti Fira Code)
+  "editor.fontLigatures": true,
+
+  // Spasi antar baris
+  "editor.lineHeight": 16,
+
+  // Lebar tab (spasi)
+  "editor.tabSize": 2,
+
+  // Gunakan spasi, bukan tab
+  "editor.insertSpaces": true,
+
+  // Render whitespace (all, boundary, trailing, none)
+  "editor.renderWhitespace": "trailing",
+
+  // Render garis panduan indentasi
+  "editor.guides.indentation": true,
+
+  // Bungkus teks otomatis pada baris panjang
+  "editor.wordWrap": "off",
+
+  // Tampilkan CodeLens (references, test) di atas fungsi
+  "editor.codeLens": false,
+
+  // Tampilkan nomor baris
+  "editor.lineNumbers": "on",
+
+  // Minimap
+  "editor.minimap.enabled": true,
+  "editor.minimap.renderCharacters": false,
+  "editor.minimap.maxColumn": 120,
+
+  // Lebar ruler (garis vertikal sebagai panduan panjang baris)
+  "editor.rulers": [80, 120],
+
+  // Cursor blinking (blink, smooth, phase, expand)
+  "editor.cursorBlinking": "smooth",
+
+  // Animasi cursor
+  "editor.cursorSmoothCaretAnimation": "on",
+
+  // Pastikan ada spasi di akhir file
+  "files.insertFinalNewline": true,
+
+  // Trim whitespace trailing otomatis saat save
+  "files.trimTrailingWhitespace": true,
+
+  // Trim space pada baris akhir saat save
+  "files.trimFinalNewlines": true,
+
+  // Encoding default
+  "files.encoding": "utf8",
+
+  // End of line (LF lebih disarankan untuk Linux)
+  "files.eol": "\n",
+
+  // Auto-save (off, afterDelay, onFocusChange, onWindowChange)
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000,
+
+  // =============================
+  // WORKBENCH / UI
+  // =============================
+
+  // Tema ikon
+  "workbench.iconTheme": "catppuccin-perfect-macchiato",
+
+  // Tema warna (ubah sesuai preferensi)
+  "workbench.colorTheme": "Catppuccin Mocha",
+
+  // Tampilkan activity bar (default=left, top, bottom, hidden)
+  "workbench.activityBar.location": "hidden",
+
+  // Tampilkan breadcrumb
+  "workbench.editor.showTabs": "multiple",
+  "breadcrumbs.enabled": true,
+
+  // =============================
+  // FORMATTING & LINTING
+  // =============================
+
+  // Format otomatis saat save (true/false)
+  "editor.formatOnSave": true,
+
+  // Format otomatis saat menempel (paste)
+  "editor.formatOnPaste": true,
+
+  // Format saat mengetik
+  "editor.formatOnType": false,
+
+  // Show code actions/quick fixes (import otomatis, dll)
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+
+  // Formatter default per bahasa (contoh: Prettier)
+  "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[javascriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[jsonc]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[html]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[css]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+
+  // ESLint
+  "eslint.enable": true,
+  "eslint.run": "onSave",
+  "eslint.format.enable": true,
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+
+  // =============================
+  // JAVASCRIPT / NODE / REACT
+  // =============================
+
+  // Resolusi modul (buat file tsconfig.json bila perlu)
+  "js/ts.updateImportsOnFileMove.enabled": "always",
+
+  // Sertakan hanya bahasa yang relevan
+  "files.associations": {
+    "*.jsx": "javascriptreact",
+    "*.tsx": "typescriptreact"
+  },
+
+  // =============================
+  // GIT
+  // =============================
+
+  // Auto fetch repo git
+  "git.autofetch": true,
+
+  // Menampilkan konflik sebagai editor merge
+  "git.mergeEditor": true,
+
+  // =============================
+  // TERMINAL
+  // =============================
+
+  // Posisi terminal (editor atau panel)
+  "terminal.integrated.defaultLocation": "editor",
+
+  // Font terminal
+  "terminal.integrated.fontSize": 10,
+  "terminal.integrated.fontFamily": "'JetBrains Mono', monospace",
+
+  // =============================
+  // EXPLORER / PARSING
+  // =============================
+
+  // Jangan tampilkan file di explorer
+  "files.exclude": {
+    "**/.git": true,
+    "**/node_modules": true,
+    "**/dist": false,
+    "**/build": false
+  },
+
+  // Pencarian global ignore
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true
+  },
+
+  // =============================
+  // SCANNER / PROYEK KHUSUS
+  // =============================
+
+  // Izinkan worker untuk melakukan blok (jika perlu)
+  "terminal.integrated.shellIntegration.enabled": true,
+
+  // =============================
+  // LAINNYA
+  // =============================
+
+  // Snapshot pengaturan eksternal (browser, dll)
+  "window.zoomLevel": 0,
+
+  // Aktifkan update otomatis ekstensi
+  "extensions.autoCheckUpdates": true,
+
+  // Peristiwa debug/atas progress
+  "editor.suggestSelection": "first"
+}

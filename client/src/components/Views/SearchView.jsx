@@ -202,7 +202,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
 
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center space-x-2">
-                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-black text-[#FFC107] border border-[#FFC107]/40">
                   {selectedPlaylist.type}
                 </span>
                 {selectedPlaylist.isHiRes && (
@@ -226,16 +226,16 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
             <button
               onClick={() => playPlaylist(selectedPlaylist)}
               disabled={selectedPlaylist.songs.length === 0}
-              className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 hover:scale-105 active:scale-95 transition-all disabled:opacity-40"
+              className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-5 py-3 rounded-2xl bg-black text-[#FFC107] border-2 border-[#FFC107] font-bold text-xs shadow-lg shadow-[#FFC107]/25 hover:scale-105 active:scale-95 transition-all disabled:opacity-40"
             >
-              <Play size={16} className="fill-slate-950" />
+              <Play size={16} className="fill-[#FFC107] text-[#FFC107]" />
               <span>Putar Semua</span>
             </button>
 
             <button
               onClick={() => addPlaylistToQueue(selectedPlaylist)}
               disabled={selectedPlaylist.songs.length === 0}
-              className="flex items-center justify-center space-x-2 px-4 py-3 rounded-2xl glass-pill text-slate-200 hover:text-white font-bold text-xs transition-all disabled:opacity-40"
+              className="flex items-center justify-center space-x-2 px-4 py-3 rounded-2xl bg-black/40 border border-white/20 text-slate-200 hover:text-white font-bold text-xs transition-all disabled:opacity-40"
               title="Tambah semua ke Antrean"
             >
               <Plus size={16} />
@@ -256,12 +256,12 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
                     onClick={() => onPlaySong(song)}
                     className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all ${
                       isCurrent
-                        ? 'bg-cyan-500/15 border border-cyan-500/30 text-white shadow-md'
+                        ? 'bg-black border-2 border-[#FFC107] text-white shadow-lg shadow-[#FFC107]/15'
                         : 'hover:bg-white/5 border border-transparent text-slate-300'
                     }`}
                   >
                     <div className="flex items-center space-x-4 min-w-0 flex-1">
-                      <span className={`w-6 text-center text-xs font-bold ${isCurrent ? 'text-cyan-400' : 'text-slate-500'}`}>
+                      <span className={`w-6 text-center text-xs font-bold ${isCurrent ? 'text-[#FFC107]' : 'text-slate-500 group-hover:text-[#FFC107]'}`}>
                         {isCurrent ? '▶' : index + 1}
                       </span>
 
@@ -274,7 +274,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <h3 className={`text-sm font-bold truncate ${isCurrent ? 'text-cyan-300' : 'text-slate-100'}`}>
+                        <h3 className={`text-sm font-bold truncate ${isCurrent ? 'text-[#FFC107]' : 'text-slate-100'}`}>
                           {song.title || song.filename}
                         </h3>
                         <p className="text-xs text-slate-400 truncate">
@@ -294,7 +294,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
                           onAddToQueue(song);
                         }}
                         title="Tambah ke Queue"
-                        className="p-2 rounded-xl glass-pill text-slate-400 hover:text-cyan-300"
+                        className="p-2 rounded-xl glass-pill text-slate-400 hover:text-[#FFC107]"
                       >
                         <Plus size={14} />
                       </button>
@@ -321,7 +321,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
       <div className="glass-panel p-4 sm:p-5 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Title & Stats */}
         <div className="flex items-center space-x-3 w-full md:w-auto">
-          <div className="p-2.5 bg-gradient-to-tr from-cyan-500/20 to-sky-500/20 border border-cyan-500/30 rounded-2xl text-cyan-400">
+          <div className="p-2.5 bg-black border border-[#FFC107]/40 rounded-2xl text-[#FFC107] shadow-sm">
             <ListMusic size={22} />
           </div>
           <div>
@@ -342,10 +342,10 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
             <button
               key={filter.id}
               onClick={() => setActiveFilter(filter.id)}
-              className={`px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap ${
+              className={`px-3.5 py-1.5 rounded-xl transition-all whitespace-nowrap ${
                 activeFilter === filter.id
-                  ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 shadow-md shadow-cyan-500/20'
-                  : 'glass-pill text-slate-400 hover:text-white'
+                  ? 'bg-black text-[#FFC107] border-2 border-[#FFC107] shadow-md shadow-[#FFC107]/20 font-bold'
+                  : 'bg-black/40 text-slate-400 border border-white/20 hover:text-white'
               }`}
             >
               {filter.label}
@@ -354,7 +354,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
 
           <button
             onClick={() => setIsCreating(true)}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-bold hover:bg-cyan-500/20 transition-all whitespace-nowrap"
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-black text-[#FFC107] border border-[#FFC107]/40 font-bold hover:bg-[#FFC107]/10 transition-all whitespace-nowrap shadow-sm"
           >
             <FolderPlus size={14} />
             <span>+ Playlist</span>
@@ -365,13 +365,13 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
       {/* Quick Search & Create Modal Row */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative w-full sm:w-80">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-cyan-400" />
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#FFC107]" />
           <input
             type="text"
             placeholder="Cari album, playlist, atau artist..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-900/90 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors shadow-inner"
+            className="w-full bg-slate-900/90 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FFC107]/60 transition-colors shadow-inner"
           />
         </div>
       </div>
@@ -379,9 +379,9 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
       {/* Modal Dialog: Create Playlist */}
       {isCreating && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <form onSubmit={handleCreatePlaylist} className="glass-panel p-6 rounded-3xl w-full max-w-md space-y-4 border border-cyan-500/30 shadow-2xl">
+          <form onSubmit={handleCreatePlaylist} className="glass-panel p-6 rounded-3xl w-full max-w-md space-y-4 border border-[#FFC107]/30 shadow-2xl">
             <h3 className="text-base font-extrabold text-white flex items-center space-x-2">
-              <FolderPlus size={20} className="text-cyan-400" />
+              <FolderPlus size={20} className="text-[#FFC107]" />
               <span>Buat Playlist Baru</span>
             </h3>
             <input
@@ -390,19 +390,19 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
               value={newPlaylistName}
               onChange={(e) => setNewPlaylistName(e.target.value)}
               autoFocus
-              className="w-full bg-slate-900 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500"
+              className="w-full bg-slate-900 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FFC107]"
             />
             <div className="flex items-center justify-end space-x-3">
               <button
                 type="button"
                 onClick={() => setIsCreating(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white glass-pill"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white bg-black/40 border border-white/20"
               >
                 Batal
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-500 text-slate-950 hover:bg-cyan-400 shadow-md"
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-black text-[#FFC107] border-2 border-[#FFC107] hover:bg-[#FFC107]/10 shadow-md"
               >
                 Buat Playlist
               </button>
@@ -419,7 +419,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
               <div
                 key={item.id}
                 onClick={() => setSelectedPlaylist(item)}
-                className="group relative flex flex-col bg-slate-900/40 hover:bg-slate-800/70 border border-white/10 hover:border-cyan-500/40 rounded-2xl p-3 cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1 backdrop-blur-sm"
+                className="group relative flex flex-col bg-slate-900/40 hover:bg-slate-800/70 border border-white/10 hover:border-[#FFC107]/50 rounded-2xl p-3 cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-[#FFC107]/10 hover:-translate-y-1 backdrop-blur-sm"
               >
                 {/* Card Image Box */}
                 <div className="w-full aspect-square rounded-xl bg-slate-950/80 border border-white/10 overflow-hidden relative mb-3 flex items-center justify-center shadow-inner">
@@ -430,7 +430,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
                   ) : (
-                    <Disc size={48} className="text-slate-700 group-hover:text-cyan-500/50 transition-colors" />
+                    <Disc size={48} className="text-slate-700 group-hover:text-[#FFC107]/50 transition-colors" />
                   )}
 
                   {/* Hi-Res Badge Overlay */}
@@ -456,14 +456,14 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
                     <button
                       onClick={(e) => playPlaylist(item, e)}
                       title="Putar Playlist"
-                      className="p-3 rounded-full bg-cyan-500 text-slate-950 hover:scale-110 active:scale-95 shadow-lg shadow-cyan-500/40 transition-all"
+                      className="p-3 rounded-full bg-black text-[#FFC107] border-2 border-[#FFC107] hover:scale-110 active:scale-95 shadow-lg shadow-[#FFC107]/30 transition-all"
                     >
-                      <Play size={18} className="fill-slate-950 ml-0.5" />
+                      <Play size={18} className="fill-[#FFC107] text-[#FFC107] ml-0.5" />
                     </button>
                     <button
                       onClick={(e) => addPlaylistToQueue(item, e)}
                       title="Tambah ke Antrean"
-                      className="p-3 rounded-full glass-pill text-white hover:scale-110 active:scale-95 transition-all"
+                      className="p-3 rounded-full bg-black/60 border border-white/30 text-white hover:scale-110 active:scale-95 transition-all"
                     >
                       <Plus size={18} />
                     </button>
@@ -472,7 +472,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
 
                 {/* Card Title & Info */}
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <h3 className="text-xs sm:text-sm font-extrabold text-white truncate group-hover:text-cyan-300 transition-colors">
+                  <h3 className="text-xs sm:text-sm font-extrabold text-white truncate group-hover:text-[#FFC107] transition-colors">
                     {item.title}
                   </h3>
                   <p className="text-[11px] text-slate-400 truncate">

@@ -22,8 +22,8 @@ export default function App() {
 
   // Dynamic Theme Palette State
   const [themeStyle, setThemeStyle] = useState({
-    bgGradient: 'radial-gradient(circle at 50% 25%, rgba(56, 189, 248, 0.2) 0%, rgba(8, 11, 17, 0.98) 75%)',
-    accentHex: '#38bdf8'
+    bgGradient: 'radial-gradient(circle at 50% 25%, rgba(255, 193, 7, 0.12) 0%, rgba(3, 7, 30, 0.98) 75%)',
+    accentHex: '#FFC107'
   });
 
   const audioRef = useRef(null);
@@ -68,8 +68,8 @@ export default function App() {
       });
     } else {
       setThemeStyle({
-        bgGradient: 'radial-gradient(circle at 50% 25%, rgba(56, 189, 248, 0.2) 0%, rgba(8, 11, 17, 0.98) 75%)',
-        accentHex: '#38bdf8'
+        bgGradient: 'radial-gradient(circle at 50% 25%, rgba(255, 193, 7, 0.12) 0%, rgba(3, 7, 30, 0.98) 75%)',
+        accentHex: '#FFC107'
       });
     }
   }, [currentSong]);

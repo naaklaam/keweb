@@ -18,12 +18,15 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
 
   const isHiRes = song && (song.bits_per_sample > 16 || song.sample_rate > 44100);
 
-  // Auto-fetch online synced LRC lyrics from LRCLIB if local lyrics have no timestamps
+  // Auto-fetch online synced LRC lyrics with 2-stage LRCLIB lookup (exact get -> search query fallback)
   useEffect(() => {
     setSyncedLyricsData(null);
-    setSyncOffset(0);
 
     if (!song) return;
+
+    // Restore persistent user sync offset calibration for this song
+    const savedOffset = localStorage.getItem(`lrc_offset_${song.id}`);
+    setSyncOffset(savedOffset ? parseFloat(savedOffset) : 0);
 
     const hasLocalLrc = song.lyrics && /\[\d{2}:\d{2}/.test(song.lyrics);
     if (hasLocalLrc) {
@@ -44,7 +47,25 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
           if (data && data.syncedLyrics) {
             setSyncedLyricsData(data.syncedLyrics);
           } else {
-            setSyncedLyricsData(song.lyrics || null);
+            // Stage 2: Fallback Search Query if exact /api/get had no synced lyrics
+            const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(cleanArtist + ' ' + cleanTitle)}`;
+            return fetch(searchUrl)
+              .then(res => res.ok ? res.json() : null)
+              .then(searchResults => {
+                if (Array.isArray(searchResults) && searchResults.length > 0) {
+                  const syncedItem = searchResults.find(item => item.syncedLyrics && item.syncedLyrics.trim());
+                  if (syncedItem) {
+                    setSyncedLyricsData(syncedItem.syncedLyrics);
+                    return;
+                  }
+                  const plainItem = searchResults.find(item => item.plainLyrics && item.plainLyrics.trim());
+                  if (plainItem && !song.lyrics) {
+                    setSyncedLyricsData(plainItem.plainLyrics);
+                    return;
+                  }
+                }
+                setSyncedLyricsData(song.lyrics || null);
+              });
           }
         })
         .catch(() => {
@@ -58,8 +79,27 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
     }
   }, [song?.id]);
 
+  // Handle sync offset changes and persist to localStorage per song
+  const handleOffsetChange = (delta) => {
+    setSyncOffset(prev => {
+      const next = parseFloat((prev + delta).toFixed(1));
+      if (song && song.id) {
+        localStorage.setItem(`lrc_offset_${song.id}`, next.toString());
+      }
+      return next;
+    });
+  };
+
+  const handleResetOffset = () => {
+    setSyncOffset(0);
+    if (song && song.id) {
+      localStorage.removeItem(`lrc_offset_${song.id}`);
+    }
+  };
+
   // Parse lyrics with timestamps & applied sync offset
   const activeLyricsText = syncedLyricsData || (song ? song.lyrics : '');
+  const isHasLrcTimestamps = activeLyricsText && /\[\d{2}:\d{2}/.test(activeLyricsText);
   const parsedLyrics = parseLyrics(activeLyricsText, duration, syncOffset);
   const activeLyricIndex = getActiveLyricIndex(parsedLyrics, currentTime);
 
@@ -80,13 +120,13 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
       {song ? (
         <div className="max-w-4xl mx-auto w-full flex flex-col space-y-6">
           {/* Main Album Art & Track Info Banner */}
-          <div className="glass-panel p-6 sm:p-8 rounded-3xl grid grid-cols-1 md:grid-cols-12 gap-8 items-center relative overflow-hidden">
+          <div className="bg-slate-900/30 border border-white/10 p-6 sm:p-8 rounded-3xl grid grid-cols-1 md:grid-cols-12 gap-8 items-center relative overflow-hidden backdrop-blur-md shadow-2xl">
             {/* Ambient Background Blur Highlight inside Card */}
             <div className="absolute -top-24 -right-24 w-72 h-72 bg-white/5 rounded-full blur-3xl pointer-events-none" />
 
             {/* Left: Album Cover Art */}
             <div className="md:col-span-5 flex justify-center">
-              <div className="relative group w-56 h-56 sm:w-64 sm:h-64 rounded-2xl bg-slate-950 overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center">
+              <div className="relative group w-56 h-56 sm:w-64 sm:h-64 rounded-2xl bg-slate-950/80 overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center">
                 {song.has_cover ? (
                   <img
                     src={`/api/cover/${song.id}`}
@@ -111,12 +151,12 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
             <div className="md:col-span-7 flex flex-col space-y-5">
               <div>
                 <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <span className="px-3 py-1 rounded-full text-xs bg-white/10 text-white border border-white/20 font-semibold tracking-wide flex items-center space-x-1.5">
-                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  <span className="px-3 py-1 rounded-full text-xs bg-black text-[#FFC107] border border-[#FFC107]/40 font-semibold tracking-wide flex items-center space-x-1.5 backdrop-blur-sm shadow-sm">
+                    <span className="w-2 h-2 rounded-full bg-[#FFC107] animate-pulse" />
                     <span>NOW PLAYING</span>
                   </span>
                   {isHiRes && (
-                    <span className="px-3 py-1 rounded-full text-xs bg-purple-500/10 text-purple-300 border border-purple-500/30 font-semibold flex items-center space-x-1">
+                    <span className="px-3 py-1 rounded-full text-xs bg-purple-500/15 text-purple-300 border border-purple-500/30 font-semibold flex items-center space-x-1 backdrop-blur-sm">
                       <ShieldCheck size={13} />
                       <span>HI-RES LOSSLESS</span>
                     </span>
@@ -130,10 +170,10 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                 <p className="text-slate-400 text-xs sm:text-sm font-medium">{song.album || 'Unknown Album'} {song.year ? `(${song.year})` : ''}</p>
               </div>
 
-              {/* Minimal Progress Bar & Menitan Display */}
+              {/* Thread-Thin Gold Progress Bar & Menitan Display */}
               <div className="flex flex-col space-y-2 pt-1">
                 <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-white font-medium">{formatTime(currentTime)}</span>
+                  <span className="text-slate-200 font-medium">{formatTime(currentTime)}</span>
                   <span className="text-slate-400 font-medium">{formatTime(duration)}</span>
                 </div>
                 <div className="relative flex items-center group">
@@ -144,13 +184,13 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                     step="0.1"
                     value={currentTime || 0}
                     onChange={(e) => onSeek && onSeek(parseFloat(e.target.value))}
-                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-white z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="w-full h-2 bg-transparent appearance-none cursor-pointer accent-[#FFC107] z-10 opacity-0 group-hover:opacity-100 transition-opacity"
                   />
-                  {/* Track Background */}
-                  <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full h-2 bg-white/10 rounded-full pointer-events-none" />
-                  {/* Passed Progress Overlay Bar - Bright White */}
+                  {/* Thread Track Background */}
+                  <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full h-[2px] bg-white/20 rounded-full pointer-events-none" />
+                  {/* Passed Progress Overlay Bar - Thread Thin Gold */}
                   <div
-                    className="absolute top-1/2 -translate-y-1/2 left-0 h-2 bg-white rounded-full pointer-events-none transition-all duration-100 shadow-sm"
+                    className="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-[#FFC107] rounded-full pointer-events-none transition-all duration-100 shadow-sm shadow-[#FFC107]/50"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
@@ -167,7 +207,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
 
                 <div className="glass-pill p-3 rounded-2xl flex flex-col justify-center">
                   <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Bit Depth</span>
-                  <span className="text-amber-300 font-bold text-sm">{song.bits_per_sample || 16}-bit</span>
+                  <span className="text-[#FFC107] font-bold text-sm">{song.bits_per_sample || 16}-bit</span>
                 </div>
 
                 <div className="glass-pill p-3 rounded-2xl flex flex-col justify-center">
@@ -186,67 +226,93 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
           </div>
 
           {/* Sub-Tab Navigation: Lyrics vs Detailed Spec Matrix */}
-          <div className="glass-panel p-6 rounded-3xl flex flex-col space-y-6">
+          <div className="bg-slate-900/30 border border-white/10 p-6 rounded-3xl flex flex-col space-y-6 backdrop-blur-md">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 gap-3">
-              <div className="flex items-center space-x-2 bg-slate-900/80 p-1.5 rounded-2xl border border-white/10 w-fit">
+              <div className="flex items-center space-x-2 bg-black/60 p-1.5 rounded-2xl border border-white/10 w-fit">
                 <button
                   onClick={() => setActiveSubTab('lyrics')}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs transition-all ${
                     activeSubTab === 'lyrics'
-                      ? 'bg-white text-slate-950 shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-black text-[#FFC107] border-2 border-[#FFC107] shadow-md shadow-[#FFC107]/20 font-bold'
+                      : 'bg-black/40 text-slate-400 border border-white/20 hover:text-white'
                   }`}
                 >
-                  <FileText size={15} />
+                  <FileText size={15} className={activeSubTab === 'lyrics' ? 'text-[#FFC107]' : 'text-slate-400'} />
                   <span>Lirik Lagu ({parsedLyrics.length})</span>
                 </button>
 
                 <button
                   onClick={() => setActiveSubTab('specs')}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs transition-all ${
                     activeSubTab === 'specs'
-                      ? 'bg-white text-slate-950 shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-black text-[#FFC107] border-2 border-[#FFC107] shadow-md shadow-[#FFC107]/20 font-bold'
+                      : 'bg-black/40 text-slate-400 border border-white/20 hover:text-white'
                   }`}
                 >
-                  <Layers size={15} />
+                  <Layers size={15} className={activeSubTab === 'specs' ? 'text-[#FFC107]' : 'text-slate-400'} />
                   <span>Informasi Metadata</span>
                 </button>
               </div>
 
-              {/* Sync Calibration Delay Controls */}
+              {/* Sync Calibration Delay Controls & Timestamp Status Badge */}
               {activeSubTab === 'lyrics' && parsedLyrics.length > 0 && (
-                <div className="flex items-center space-x-2 text-xs font-mono">
-                  <span className="text-slate-400 font-semibold flex items-center space-x-1">
-                    <Sliders size={13} />
-                    <span>Sync:</span>
+                <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${
+                    isHasLrcTimestamps
+                      ? 'bg-[#FFC107]/10 text-[#FFC107] border-[#FFC107]/30'
+                      : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                  }`}>
+                    {isHasLrcTimestamps ? 'SYNCED LRC' : 'PLAIN ESTIMATED'}
                   </span>
-                  <button
-                    onClick={() => setSyncOffset(prev => parseFloat((prev - 0.5).toFixed(1)))}
-                    className="px-2 py-1 rounded-lg glass-pill text-slate-300 hover:text-white"
-                    title="Percepat Lirik 0.5s"
-                  >
-                    -0.5s
-                  </button>
-                  <span className={`px-2 py-1 rounded-lg ${syncOffset !== 0 ? 'bg-white/20 text-white font-bold' : 'text-slate-400'}`}>
-                    {syncOffset > 0 ? `+${syncOffset}s` : `${syncOffset}s`}
-                  </span>
-                  <button
-                    onClick={() => setSyncOffset(prev => parseFloat((prev + 0.5).toFixed(1)))}
-                    className="px-2 py-1 rounded-lg glass-pill text-slate-300 hover:text-white"
-                    title="Perlambat Lirik 0.5s"
-                  >
-                    +0.5s
-                  </button>
-                  {syncOffset !== 0 && (
+
+                  <div className="flex items-center space-x-1 bg-black/60 p-1 rounded-xl border border-white/10">
+                    <span className="text-slate-400 font-semibold px-1 flex items-center space-x-1 text-[11px]">
+                      <Sliders size={12} />
+                      <span>Sync:</span>
+                    </span>
                     <button
-                      onClick={() => setSyncOffset(0)}
-                      className="p-1 rounded-lg glass-pill text-rose-400 hover:text-white"
-                      title="Reset Offset"
+                      onClick={() => handleOffsetChange(-0.5)}
+                      className="px-1.5 py-0.5 rounded-lg bg-black/60 border border-white/20 text-slate-300 hover:text-[#FFC107] hover:border-[#FFC107]/40 text-[11px]"
+                      title="Percepat Lirik 0.5s"
                     >
-                      <RefreshCw size={12} />
+                      -0.5s
                     </button>
-                  )}
+                    <button
+                      onClick={() => handleOffsetChange(-0.1)}
+                      className="px-1.5 py-0.5 rounded-lg bg-black/60 border border-white/20 text-slate-300 hover:text-[#FFC107] hover:border-[#FFC107]/40 text-[11px]"
+                      title="Percepat Lirik 0.1s"
+                    >
+                      -0.1s
+                    </button>
+                    <span className={`px-2 py-0.5 rounded-lg text-[11px] font-bold ${
+                      syncOffset !== 0 ? 'bg-black text-[#FFC107] border border-[#FFC107]/40' : 'text-slate-400'
+                    }`}>
+                      {syncOffset > 0 ? `+${syncOffset}s` : `${syncOffset}s`}
+                    </span>
+                    <button
+                      onClick={() => handleOffsetChange(0.1)}
+                      className="px-1.5 py-0.5 rounded-lg bg-black/60 border border-white/20 text-slate-300 hover:text-[#FFC107] hover:border-[#FFC107]/40 text-[11px]"
+                      title="Perlambat Lirik 0.1s"
+                    >
+                      +0.1s
+                    </button>
+                    <button
+                      onClick={() => handleOffsetChange(0.5)}
+                      className="px-1.5 py-0.5 rounded-lg bg-black/60 border border-white/20 text-slate-300 hover:text-[#FFC107] hover:border-[#FFC107]/40 text-[11px]"
+                      title="Perlambat Lirik 0.5s"
+                    >
+                      +0.5s
+                    </button>
+                    {syncOffset !== 0 && (
+                      <button
+                        onClick={handleResetOffset}
+                        className="p-1 rounded-lg bg-black/60 border border-white/20 text-rose-400 hover:text-white"
+                        title="Reset Offset"
+                      >
+                        <RefreshCw size={11} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -269,8 +335,8 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                         onClick={() => onSeek && onSeek(lineObj.time)}
                         className={`cursor-pointer transition-all duration-300 py-2.5 px-3 rounded-xl ${
                           isActive
-                            ? 'text-white font-bold text-lg sm:text-xl scale-[1.03] opacity-100'
-                            : 'text-slate-500 font-medium text-base sm:text-lg opacity-50 hover:opacity-80'
+                            ? 'text-[#FFC107] font-bold text-lg sm:text-xl scale-[1.03] opacity-100 drop-shadow-md'
+                            : 'text-slate-400 font-medium text-base sm:text-lg opacity-50 hover:opacity-80'
                         }`}
                       >
                         <p>{lineObj.text}</p>

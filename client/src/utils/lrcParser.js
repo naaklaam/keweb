@@ -73,6 +73,7 @@ export function parseLyrics(rawLyrics, totalDuration = 0, offset = 0) {
  */
 export function getActiveLyricIndex(parsedLines, currentTime) {
   if (!parsedLines || parsedLines.length === 0) return -1;
+  if (currentTime < parsedLines[0].time) return -1;
 
   for (let i = parsedLines.length - 1; i >= 0; i--) {
     if (currentTime >= parsedLines[i].time) {
@@ -80,5 +81,5 @@ export function getActiveLyricIndex(parsedLines, currentTime) {
     }
   }
 
-  return 0;
+  return -1;
 }
