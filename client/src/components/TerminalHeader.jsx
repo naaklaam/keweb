@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Music2, ListMusic, Disc3, Search, Clock, Disc } from 'lucide-react';
+import { Clock, Disc, Disc3, ListMusic, Music2, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function TerminalHeader({ activeTab, setActiveTab, stats }) {
-  const [time, setTime] = useState('');
+  const [time, setTime] = useState("");
 
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
-      setTime(now.toLocaleTimeString('en-US', { hour12: false }));
+      setTime(now.toLocaleTimeString("en-US", { hour12: false }));
     };
     updateClock();
     const interval = setInterval(updateClock, 1000);
@@ -16,9 +16,9 @@ export default function TerminalHeader({ activeTab, setActiveTab, stats }) {
 
   const tabs = [
     { id: 'library', label: 'Library', icon: Music2, badge: stats.totalSongs || 0 },
-    { id: 'playlist', label: 'Queue', icon: ListMusic },
+    { id: 'queue', label: 'Queue', icon: ListMusic },
     { id: 'track', label: 'Now Playing', icon: Disc3 },
-    { id: 'search', label: 'Search', icon: Search },
+    { id: 'playlist', label: 'Playlist', icon: Disc },
   ];
 
   return (
@@ -35,7 +35,9 @@ export default function TerminalHeader({ activeTab, setActiveTab, stats }) {
               FLAC
             </span>
           </h1>
-          <p className="text-[11px] text-slate-400 font-medium">Lossless Audio Player</p>
+          <p className="text-[11px] text-slate-400 font-medium">
+            Lossless Audio Player
+          </p>
         </div>
       </div>
 
@@ -50,14 +52,16 @@ export default function TerminalHeader({ activeTab, setActiveTab, stats }) {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 ${
                 isActive
-                  ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 shadow-md shadow-cyan-500/25 font-bold'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  ? "bg-gradient-to-r from-cyan-500 to-sky-500 text-slate-950 shadow-md shadow-cyan-500/25 font-bold"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
               }`}
             >
               <Icon size={15} />
               <span>{tab.label}</span>
               {tab.badge !== undefined && (
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-slate-950/20 text-slate-900' : 'bg-white/10 text-slate-400'}`}>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? "bg-slate-950/20 text-slate-900" : "bg-white/10 text-slate-400"}`}
+                >
                   {tab.badge}
                 </span>
               )}

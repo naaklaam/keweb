@@ -187,7 +187,7 @@ export default function App() {
       switch (e.key) {
         case 'F2':
           e.preventDefault();
-          setActiveTab('playlist');
+          setActiveTab('queue');
           break;
         case 'F3':
           e.preventDefault();
@@ -199,7 +199,7 @@ export default function App() {
           break;
         case 'F5':
           e.preventDefault();
-          setActiveTab('search');
+          setActiveTab('playlist');
           break;
         case ' ':
           e.preventDefault();
@@ -233,7 +233,7 @@ export default function App() {
           break;
         case '/':
           e.preventDefault();
-          setActiveTab('search');
+          setActiveTab('playlist');
           break;
         default:
           break;
@@ -293,7 +293,7 @@ export default function App() {
 
       {/* Main View Area */}
       <main className="flex-1 overflow-hidden relative">
-        {activeTab === 'playlist' && (
+        {activeTab === 'queue' && (
           <PlaylistView
             queue={queue}
             currentQueueIndex={currentQueueIndex}
@@ -337,7 +337,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'search' && (
+        {activeTab === 'playlist' && (
           <SearchView
             songs={songs}
             onPlaySong={handlePlaySong}
