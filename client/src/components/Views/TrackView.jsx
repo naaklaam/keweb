@@ -226,7 +226,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
           </div>
 
           {/* Sub-Tab Navigation: Lyrics vs Detailed Spec Matrix */}
-          <div className="bg-slate-900/30 border border-white/10 p-6 rounded-3xl flex flex-col space-y-6 backdrop-blur-md">
+          <div className="flex flex-col space-y-6 pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 gap-3">
               <div className="flex items-center space-x-2 bg-black/60 p-1.5 rounded-2xl border border-white/10 w-fit">
                 <button
@@ -319,7 +319,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
 
             {/* Tab 1: Subtle Lyrics Container with ~15% Font Highlighting & Tap-to-Seek */}
             {activeSubTab === 'lyrics' && (
-              <div className="min-h-[320px] max-h-[500px] overflow-y-auto px-4 py-4 flex flex-col space-y-4 text-center sm:text-left scroll-smooth">
+              <div className="min-h-[320px] max-h-[500px] overflow-y-auto px-4 py-4 flex flex-col space-y-4 text-center sm:text-left scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {isLoadingLrc ? (
                   <div className="flex flex-col items-center justify-center py-20 text-slate-400 space-y-3">
                     <RefreshCw size={32} className="animate-spin text-white" />

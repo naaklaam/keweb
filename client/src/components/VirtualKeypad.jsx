@@ -32,8 +32,8 @@ export default function VirtualKeypad({
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <footer className="px-4 py-3 border-t border-white/10 glass-panel z-20 flex flex-col space-y-3">
-      {/* Thread-Thin Gold Seek Progress Bar */}
+    <footer>
+      {/*  Thread-Thin Gold Seek Progress Bar */}
       <div className="flex items-center space-x-3 text-xs font-mono">
         <span className="text-slate-300 font-medium w-10 text-right">{formatTime(currentTime)}</span>
         

@@ -49,10 +49,10 @@ export default function PlaylistView({
             return (
               <div
                 key={`${song.id}-${index}`}
-                className={`group flex items-center justify-between p-3 rounded-2xl transition-all backdrop-blur-sm ${
+                className={`group flex items-center justify-between p-3 rounded-2xl transition-all ${
                   isCurrent
-                    ? 'bg-black border-2 border-[#FFC107] text-white shadow-lg shadow-[#FFC107]/15'
-                    : 'bg-slate-900/40 hover:bg-slate-800/70 border border-white/10 hover:border-[#FFC107]/30 text-slate-300'
+                    ? 'bg-black/70 border-2 border-[#FFC107] text-white shadow-lg shadow-[#FFC107]/15'
+                    : 'bg-transparent border border-transparent hover:bg-white/5 text-slate-300'
                 }`}
               >
                 {/* Left: Queue Index & Details */}
