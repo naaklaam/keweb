@@ -289,6 +289,8 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         stats={stats}
+        songs={songs}
+        queue={queue}
       />
 
       {/* Main View Area */}

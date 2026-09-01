@@ -1,7 +1,7 @@
 import { Clock, Disc, Disc3, ListMusic, Music2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
-export default function TerminalHeader({ activeTab, setActiveTab, stats }) {
+export default function TerminalHeader({ activeTab, setActiveTab, stats = {}, songs = [], queue = [] }) {
   const [time, setTime] = useState("");
 
   useEffect(() => {
@@ -14,9 +14,11 @@ export default function TerminalHeader({ activeTab, setActiveTab, stats }) {
     return () => clearInterval(interval);
   }, []);
 
+  const totalLibraryCount = (songs && songs.length > 0) ? songs.length : (stats.totalSongs || 0);
+
   const tabs = [
-    { id: 'library', label: 'Library', icon: Music2, badge: stats.totalSongs || 0 },
-    { id: 'queue', label: 'Queue', icon: ListMusic },
+    { id: 'library', label: 'Library', icon: Music2, badge: totalLibraryCount },
+    { id: 'queue', label: 'Queue', icon: ListMusic, badge: queue ? queue.length : 0 },
     { id: 'track', label: 'Now Playing', icon: Disc3 },
     { id: 'playlist', label: 'Playlist', icon: Disc },
   ];
@@ -58,7 +60,7 @@ export default function TerminalHeader({ activeTab, setActiveTab, stats }) {
             >
               <Icon size={15} className={isActive ? "text-[#FFC107]" : "text-slate-400"} />
               <span>{tab.label}</span>
-              {tab.badge !== undefined && (
+              {tab.badge !== undefined && tab.badge > 0 && (
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                     isActive ? "bg-[#FFC107]/20 text-[#FFC107] border border-[#FFC107]/30" : "bg-white/10 text-slate-400"

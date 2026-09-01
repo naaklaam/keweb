@@ -89,7 +89,7 @@ app.get('/api/stats', (req, res) => {
     const totalArtists = db.prepare('SELECT COUNT(DISTINCT artist) as count FROM songs').get().count;
     const totalAlbums = db.prepare('SELECT COUNT(DISTINCT album) as count FROM songs').get().count;
     const hiResCount = db.prepare('SELECT COUNT(*) as count FROM songs WHERE bits_per_sample > 16 OR sample_rate > 44100').get().count;
-    const lyricsCount = db.prepare('SELECT COUNT(*) as count FROM songs WHERE lyrics IS NOT NULL AND lyrics != ""').get().count;
+    const lyricsCount = db.prepare("SELECT COUNT(*) as count FROM songs WHERE lyrics IS NOT NULL AND lyrics != ''").get().count;
 
     res.json({
       totalSongs,
