@@ -32,8 +32,8 @@ export default function VirtualKeypad({
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <footer>
-      {/*  Thread-Thin Gold Seek Progress Bar */}
+    <footer className="px-4 py-3 border-t border-white/10 space-y-2.5 bg-black/40 backdrop-blur-md">
+      {/* Thread-Thin Gold Seek Progress Bar */}
       <div className="flex items-center space-x-3 text-xs font-mono">
         <span className="text-slate-300 font-medium w-10 text-right">{formatTime(currentTime)}</span>
         
@@ -60,43 +60,50 @@ export default function VirtualKeypad({
       </div>
 
       {/* Control Buttons & Volume Row */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Playback Control Buttons */}
-        <div className="flex items-center space-x-2 sm:space-x-3">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+        {/* Playback Control Buttons - Unboxed & Well-Spaced */}
+        <div className="flex items-center space-x-5 sm:space-x-7">
           <button
             onClick={toggleShuffle}
             title="Shuffle Mode"
-            className={`p-2 rounded-xl transition-all ${
+            className={`p-1.5 transition-colors relative flex items-center justify-center ${
               isShuffle
-                ? 'bg-black text-[#FFC107] border-2 border-[#FFC107] shadow-md shadow-[#FFC107]/20 font-bold'
-                : 'bg-black/40 text-slate-400 border border-white/20 hover:text-white'
+                ? 'text-[#FFC107]'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Shuffle size={16} />
+            <Shuffle size={18} />
+            {isShuffle && (
+              <span className="absolute -bottom-1 w-1 h-1 bg-[#FFC107] rounded-full" />
+            )}
           </button>
 
           <button
             onClick={playPrev}
             title="Lagu Sebelumnya"
-            className="p-2.5 rounded-xl bg-black/40 border border-white/20 text-slate-200 hover:text-[#FFC107] hover:border-[#FFC107]/40 transition-all active:scale-95"
+            className="p-1.5 text-slate-300 hover:text-[#FFC107] transition-colors active:scale-90"
           >
-            <SkipBack size={18} />
+            <SkipBack size={20} />
           </button>
 
           <button
             onClick={togglePlay}
             title={isPlaying ? 'Pause' : 'Play'}
-            className="p-3.5 rounded-2xl bg-black text-[#FFC107] border-2 border-[#FFC107] shadow-lg shadow-[#FFC107]/25 hover:scale-105 active:scale-95 transition-all"
+            className="p-2 text-[#FFC107] hover:scale-110 active:scale-95 transition-transform flex items-center justify-center"
           >
-            {isPlaying ? <Pause size={20} className="fill-[#FFC107] text-[#FFC107]" /> : <Play size={20} className="fill-[#FFC107] text-[#FFC107] ml-0.5" />}
+            {isPlaying ? (
+              <Pause size={26} className="fill-[#FFC107] text-[#FFC107]" />
+            ) : (
+              <Play size={26} className="fill-[#FFC107] text-[#FFC107] ml-0.5" />
+            )}
           </button>
 
           <button
             onClick={playNext}
             title="Lagu Berikutnya"
-            className="p-2.5 rounded-xl bg-black/40 border border-white/20 text-slate-200 hover:text-[#FFC107] hover:border-[#FFC107]/40 transition-all active:scale-95"
+            className="p-1.5 text-slate-300 hover:text-[#FFC107] transition-colors active:scale-90"
           >
-            <SkipForward size={18} />
+            <SkipForward size={20} />
           </button>
 
           <button
@@ -108,31 +115,34 @@ export default function VirtualKeypad({
                 ? 'Repeat Semua Antrean'
                 : 'Repeat Matikan'
             }
-            className={`p-2 rounded-xl transition-all relative ${
+            className={`p-1.5 transition-colors relative flex items-center justify-center ${
               repeatMode !== 'off'
-                ? 'bg-black text-[#FFC107] border-2 border-[#FFC107] shadow-md shadow-[#FFC107]/20 font-bold'
-                : 'bg-black/40 text-slate-400 border border-white/20 hover:text-white'
+                ? 'text-[#FFC107]'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
-            {repeatMode === 'one' ? <Repeat1 size={16} /> : <Repeat size={16} />}
+            {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
+            {repeatMode !== 'off' && (
+              <span className="absolute -bottom-1 w-1 h-1 bg-[#FFC107] rounded-full" />
+            )}
           </button>
         </div>
 
-        {/* Quick Seek Shortcut Buttons */}
-        <div className="flex items-center space-x-2 text-xs font-semibold">
+        {/* Quick Seek Shortcut Buttons - Unboxed */}
+        <div className="flex items-center space-x-4 text-xs font-semibold">
           <button
             onClick={() => seek(-5)}
-            className="px-3 py-1.5 rounded-xl bg-black/40 border border-white/20 text-slate-300 hover:text-[#FFC107] hover:border-[#FFC107]/40 transition-all flex items-center space-x-1"
+            className="p-1 text-slate-400 hover:text-[#FFC107] transition-colors flex items-center space-x-1.5"
           >
-            <RotateCcw size={12} />
+            <RotateCcw size={14} />
             <span>-5s</span>
           </button>
 
           <button
             onClick={() => seek(5)}
-            className="px-3 py-1.5 rounded-xl bg-black/40 border border-white/20 text-slate-300 hover:text-[#FFC107] hover:border-[#FFC107]/40 transition-all flex items-center space-x-1"
+            className="p-1 text-slate-400 hover:text-[#FFC107] transition-colors flex items-center space-x-1.5"
           >
-            <RotateCcw size={12} className="rotate-180" />
+            <RotateCcw size={14} className="rotate-180" />
             <span>+5s</span>
           </button>
         </div>
@@ -143,7 +153,7 @@ export default function VirtualKeypad({
             onClick={() => setVolume(volume === 0 ? 1 : 0)}
             className="p-1.5 hover:text-white transition-colors"
           >
-            {volume === 0 ? <VolumeX size={16} className="text-rose-400" /> : <Volume2 size={16} />}
+            {volume === 0 ? <VolumeX size={18} className="text-rose-400" /> : <Volume2 size={18} />}
           </button>
           <input
             type="range"
