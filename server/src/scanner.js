@@ -234,7 +234,20 @@ async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
     }
   }
 
-  console.log(`[Scanner] Scan complete. Updated ${addedCount} songs.`);
+  // Cleanup deleted files from DB
+  const dbSongs = db.prepare('SELECT filepath FROM songs').all();
+  const validPathSet = new Set(audioFiles.map(f => path.resolve(f)));
+  const deleteStmt = db.prepare('DELETE FROM songs WHERE filepath = ?');
+  let removedCount = 0;
+
+  for (const songRow of dbSongs) {
+    if (!validPathSet.has(path.resolve(songRow.filepath))) {
+      deleteStmt.run(songRow.filepath);
+      removedCount++;
+    }
+  }
+
+  console.log(`[Scanner] Scan complete. Updated ${addedCount} songs, purged ${removedCount} stale tracks.`);
 }
 
 function getFilesRecursively(dir) {

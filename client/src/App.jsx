@@ -251,7 +251,7 @@ export default function App() {
           e.preventDefault();
           setIsShuffle(prev => !prev);
           break;
-        case 'r':
+        case 'f':
           e.preventDefault();
           toggleRepeat();
           break;

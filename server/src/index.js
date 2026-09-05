@@ -119,7 +119,7 @@ app.get('/api/telemetry', (req, res) => {
 // Trigger directory scan
 app.post('/api/scan', async (req, res) => {
   try {
-    const targetDir = req.body.dir || process.env.MUSIC_DIR;
+    const targetDir = (req.body && req.body.dir) ? req.body.dir : process.env.MUSIC_DIR;
     if (!targetDir) {
       return res.status(400).json({ error: 'MUSIC_DIR path not configured in .env' });
     }
