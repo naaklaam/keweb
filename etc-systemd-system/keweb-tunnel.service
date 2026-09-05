@@ -1,5 +1,5 @@
 [Unit]
-Description=keweb Cloudflare Tunnel Remote Daemon (root)
+Description=keweb Cloudflare Tunnel Daemon (root — ALTERNATIF; default adalah daemon user di etc-systemd-user/)
 After=keweb.service
 Wants=keweb.service
 
@@ -9,6 +9,9 @@ User=jo
 Group=jo
 WorkingDirectory=/home/jo/playering-flac
 EnvironmentFile=/home/jo/playering-flac/.env
+# PEMAKAIAN: unit ini hanya kalau memang mau daemon root (cloudflared).
+# Default proyek ini adalah daemon USER: lihat etc-systemd-user/
+# dan pakai `systemctl --user`. Jangan aktifkan root + user bersamaan.
 # Token dibaca dari TUNNEL_TOKEN di .env (dipasok EnvironmentFile di atas).
 # Jangan taruh token di baris ini; itu akan bocor ke cmdline `ps`.
 ExecStart=/home/jo/playering-flac/bin/cloudflared tunnel run

@@ -1,0 +1,17 @@
+[Unit]
+Description=keweb Localtunnel Remote Tunnel Daemon (user)
+After=keweb.service
+Wants=keweb.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/jo/playering-flac
+EnvironmentFile=/home/jo/playering-flac/.env
+ExecStart=/usr/bin/node /home/jo/playering-flac/server/src/tunnel-runner.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
