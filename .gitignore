@@ -26,6 +26,9 @@ server/data/
 logs/
 *.log
 
+# Throwaway scratch / design experiments (kept on disk, not in git)
+scratch/
+
 # System files
 .DS_Store
 Thumbs.db

@@ -29,14 +29,10 @@ start_service() {
   systemctl --user daemon-reload
   systemctl --user start keweb.service keweb-tunnel.service
 
-  TUNNEL_PASS=$(curl -s https://loca.lt/mytunnelpassword || echo "103.117.59.28")
-
   echo "------------------------------------------------------------"
   echo " STATUS:        ONLINE & HEALTHY (Systemd Managed Daemon)"
-  echo " Service Units: keweb.service | cloudflared.service"
+  echo " Service Units: keweb.service | keweb-tunnel.service"
   echo " Local Access:   http://localhost:${PORT}"
-  echo " Custom Domain:  https://keweb.my.id"
-  echo " Fallback URL:  https://${SUBDOMAIN}.loca.lt"
   echo " Journalctl:    journalctl --user -u keweb -f"
   echo "------------------------------------------------------------"
 }
