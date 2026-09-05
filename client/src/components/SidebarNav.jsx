@@ -39,7 +39,7 @@ export default function SidebarNav({
 
       {/* Sidebar / Drawer Container */}
       <aside
-        className={`fixed md:relative top-0 left-0 h-full z-40 bg-[#03071E]/95 md:bg-transparent border-r border-white/10 backdrop-blur-md transition-all duration-300 flex flex-col ${
+        className={`fixed md:relative top-0 left-0 h-full z-40 bg-[#03071E]/95 md:bg-transparent backdrop-blur-md transition-all duration-300 flex flex-col ${
           isOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-16'
         }`}
       >
@@ -57,7 +57,7 @@ export default function SidebarNav({
           </button>
         </div>
 
-        {/* Nav Items List (Frameless & Unboxed with Gold Hover) */}
+        {/* Nav Items List (Frameless & Unboxed with Gold Active State) */}
         <nav className="flex-1 py-4 space-y-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -68,10 +68,10 @@ export default function SidebarNav({
                 key={tab.id}
                 onClick={() => handleTabClick(tab.id)}
                 title={tab.label}
-                className={`w-full flex items-center space-x-3.5 px-4 py-3 text-sm font-medium transition-all group border-l-4 ${
+                className={`w-full flex items-center space-x-3.5 px-4 py-3 text-sm font-medium transition-colors group ${
                   isActive
-                    ? 'border-[#FFC107] text-[#FFC107] bg-[#FFC107]/10 font-bold'
-                    : 'border-transparent text-slate-400 hover:text-[#FFC107] hover:bg-white/5'
+                    ? 'text-[#FFC107] font-bold'
+                    : 'text-slate-400 hover:text-[#FFC107]'
                 }`}
               >
                 <Icon
@@ -81,15 +81,15 @@ export default function SidebarNav({
                   }`}
                 />
 
-                {/* Text Label & Badge (Hidden in Collapsed Desktop Mode) */}
+                {/* Text Label & Unboxed Badge (Hidden in Collapsed Desktop Mode) */}
                 <div className={`flex items-center justify-between flex-1 min-w-0 ${!isOpen ? 'md:hidden' : ''}`}>
                   <span className="truncate">{tab.label}</span>
                   {tab.badge !== undefined && tab.badge > 0 && (
                     <span
-                      className={`ml-auto text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      className={`ml-auto text-xs font-semibold ${
                         isActive
-                          ? 'bg-[#FFC107]/20 text-[#FFC107] border border-[#FFC107]/30'
-                          : 'bg-white/10 text-slate-400 group-hover:text-[#FFC107]'
+                          ? 'text-[#FFC107]'
+                          : 'text-slate-500 group-hover:text-[#FFC107]'
                       }`}
                     >
                       {tab.badge}
