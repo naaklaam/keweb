@@ -19,11 +19,9 @@ export default function PlaylistView({
   return (
     <div className="flex flex-col h-full overflow-hidden p-4 md:p-6 space-y-4">
       {/* Queue Header & Actions */}
-      <div className="glass-panel p-4 rounded-2xl flex items-center justify-between">
+      <div className="pb-3 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-black border border-[#FFC107]/40 rounded-xl text-[#FFC107] shadow-sm">
-            <ListMusic size={20} />
-          </div>
+          <ListMusic size={20} className="text-[#FFC107]" />
           <div>
             <h2 className="text-base font-extrabold text-white">PLAYLIST QUEUE</h2>
             <p className="text-xs text-slate-400">{queue.length} Lagu dalam antrean</p>
@@ -33,7 +31,7 @@ export default function PlaylistView({
         {queue.length > 0 && (
           <button
             onClick={onClearQueue}
-            className="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl glass-pill text-xs font-bold text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all"
+            className="flex items-center space-x-1.5 text-xs font-bold text-rose-400 hover:text-rose-300 transition-colors"
           >
             <Trash2 size={14} />
             <span>Kosongkan Queue</span>
@@ -84,7 +82,7 @@ export default function PlaylistView({
                 </div>
 
                 {/* Right: Duration & Control Actions */}
-                <div className="flex items-center space-x-2 ml-2">
+                <div className="flex items-center space-x-1 ml-2">
                   <span className="text-xs font-semibold text-slate-400 font-mono mr-2">
                     {formatTime(song.duration)}
                   </span>
@@ -93,26 +91,26 @@ export default function PlaylistView({
                     onClick={() => onMoveInQueue(index, -1)}
                     disabled={index === 0}
                     title="Pindah Ke Atas"
-                    className="p-1.5 rounded-lg glass-pill text-slate-400 hover:text-white disabled:opacity-30"
+                    className="p-1.5 text-slate-400 hover:text-[#FFC107] transition-colors disabled:opacity-20"
                   >
-                    <ArrowUp size={13} />
+                    <ArrowUp size={16} />
                   </button>
 
                   <button
                     onClick={() => onMoveInQueue(index, 1)}
                     disabled={index === queue.length - 1}
                     title="Pindah Ke Bawah"
-                    className="p-1.5 rounded-lg glass-pill text-slate-400 hover:text-white disabled:opacity-30"
+                    className="p-1.5 text-slate-400 hover:text-[#FFC107] transition-colors disabled:opacity-20"
                   >
-                    <ArrowDown size={13} />
+                    <ArrowDown size={16} />
                   </button>
 
                   <button
                     onClick={() => onRemoveFromQueue(index)}
                     title="Hapus dari Queue"
-                    className="p-1.5 rounded-lg glass-pill text-slate-400 hover:text-rose-400"
+                    className="p-1.5 text-slate-400 hover:text-rose-400 transition-colors"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
