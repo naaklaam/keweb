@@ -11,20 +11,63 @@ const telemetry = require('./telemetry');
 const { scanDirectory } = require('./scanner');
 const { handleAudioStream, handleCoverArt } = require('./stream');
 
+// ---- Single-instance guard -------------------------------------------------
+// A second copy of the server (orphaned `node index.js` from start.sh, a stray
+// restart race, etc.) would fight over the same SQLite file and covers dir.
+// The lock file records the PID; if the PID is dead the lock is stale and is
+// reclaimed automatically.
+const LOCK_PATH = path.join(__dirname, '../data/server.lock');
+let LOCKED = false;
+(function acquireLock() {
+  let existingPid = null;
+  try {
+    existingPid = fs.readFileSync(LOCK_PATH, 'utf8').trim();
+  } catch (e) {
+    // No lock yet — proceed
+  }
+  if (existingPid) {
+    try {
+      process.kill(Number(existingPid), 0); // throws if no such process
+      console.error(`[Server] Another instance is already running (pid ${existingPid}). Exiting.`);
+      process.exit(0);
+    } catch (e) {
+      // Stale lock — reclaim below
+    }
+  }
+  try {
+    const fd = fs.openSync(LOCK_PATH, 'wx');
+    fs.writeSync(fd, String(process.pid));
+    fs.closeSync(fd);
+    LOCKED = true;
+    console.log(`[Server] Lock acquired (pid ${process.pid}).`);
+  } catch (err) {
+    console.warn('[Server] Could not create lock file, continuing anyway:', err.message);
+  }
+})();
+
+function releaseLock() {
+  if (LOCKED) {
+    try { fs.unlinkSync(LOCK_PATH); } catch (e) {}
+  }
+}
+process.on('exit', releaseLock);
+process.on('SIGTERM', () => { releaseLock(); process.exit(0); });
+process.on('SIGINT', () => { releaseLock(); process.exit(0); });
+
+// ---- App setup -------------------------------------------------------------
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = parseInt(process.env.PORT || '5000', 10);
 const MUSIC_DIR = process.env.MUSIC_DIR;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // Request logging & telemetry middleware
 app.use((req, res, next) => {
   const start = Date.now();
   telemetry.recordApiRequest();
   res.on('finish', () => {
-    const duration = Date.now() - start;
-    logger.access(req, res, duration);
+    logger.access(req, res, Date.now() - start);
   });
   next();
 });
@@ -33,17 +76,24 @@ app.use((req, res, next) => {
 const clientBuildPath = path.join(__dirname, '../../client/dist');
 app.use(express.static(clientBuildPath));
 
-// API Routes
+// Explicit column list; NEVER expose the absolute filepath, and keep the heavy
+// lyrics column out of list responses (it is fetched per-song on the Now
+// Playing screen).
+const SONG_LIST_COLUMNS = `id, filename, title, artist, album, track_no, year, genre,
+  duration, sample_rate, bits_per_sample, bitrate, channels, lossless,
+  container, has_cover, cover_mime`;
+
+// ---- API Routes ------------------------------------------------------------
 
 // Get all songs with sorting & search
 app.get('/api/songs', (req, res) => {
   const { search, sort = 'title', order = 'asc' } = req.query;
-  
+
   const validSortFields = ['title', 'artist', 'album', 'duration', 'year', 'track_no', 'created_at', 'sample_rate', 'bits_per_sample'];
   const sortColumn = validSortFields.includes(sort) ? sort : 'title';
   const sortOrder = order.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
-  let query = 'SELECT id, filename, title, artist, album, track_no, year, genre, duration, sample_rate, bits_per_sample, bitrate, channels, lossless, container, has_cover, lyrics FROM songs';
+  let query = `SELECT ${SONG_LIST_COLUMNS} FROM songs`;
   const params = [];
 
   if (search) {
@@ -54,6 +104,14 @@ app.get('/api/songs', (req, res) => {
 
   query += ` ORDER BY ${sortColumn} ${sortOrder}`;
 
+  // Optional pagination for very large libraries
+  if (req.query.limit !== undefined) {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 0, 1), 1000);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    query += ' LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+  }
+
   try {
     const songs = db.prepare(query).all(...params);
     res.json(songs);
@@ -63,10 +121,15 @@ app.get('/api/songs', (req, res) => {
   }
 });
 
-// Get single song
+// Get single song (includes lyrics, still no filepath)
 app.get('/api/songs/:id', (req, res) => {
   try {
-    const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id);
+    const song = db.prepare(
+      `SELECT id, filename, title, artist, album, track_no, year, genre, duration,
+              sample_rate, bits_per_sample, bitrate, channels, lossless,
+              container, mime_type, has_cover, cover_mime, lyrics
+       FROM songs WHERE id = ?`
+    ).get(req.params.id);
     if (!song) return res.status(404).json({ error: 'Song not found' });
     res.json(song);
   } catch (err) {
@@ -108,52 +171,180 @@ app.get('/api/stats', (req, res) => {
 // Telemetry Report Route
 app.get('/api/telemetry', (req, res) => {
   try {
-    const report = telemetry.getTelemetryReport();
-    res.json(report);
+    res.json(telemetry.getTelemetryReport());
   } catch (err) {
     logger.error('TELEMETRY', 'Error generating telemetry report', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Trigger directory scan
-app.post('/api/scan', async (req, res) => {
+// ---- Playlists (server-side, matches the DB schema) ------------------------
+
+// GET /api/playlists
+app.get('/api/playlists', (req, res) => {
   try {
-    const targetDir = (req.body && req.body.dir) ? req.body.dir : process.env.MUSIC_DIR;
-    if (!targetDir) {
-      return res.status(400).json({ error: 'MUSIC_DIR path not configured in .env' });
-    }
-    logger.info('SCAN', `Triggered manual directory scan for: ${targetDir}`);
-    await scanDirectory(targetDir);
-    res.json({ success: true, message: 'Scan completed successfully' });
+    const rows = db.prepare(`
+      SELECT p.id, p.name, p.created_at, COUNT(ps.song_id) AS song_count
+      FROM playlists p
+      LEFT JOIN playlist_songs ps ON ps.playlist_id = p.id
+      GROUP BY p.id
+      ORDER BY p.name COLLATE NOCASE
+    `).all();
+    res.json(rows);
   } catch (err) {
-    logger.error('SCAN', 'Scan failed', err);
+    logger.error('API', 'Error listing playlists', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Fallback handler for Single Page Application routing
-app.use((req, res) => {
-  const indexPath = path.join(clientBuildPath, 'index.html');
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.status(404).json({ error: 'API endpoint not found' });
+// POST /api/playlists { name }
+app.post('/api/playlists', (req, res) => {
+  const name = (req.body && typeof req.body.name === 'string' ? req.body.name : '').trim();
+  if (!name) return res.status(400).json({ error: 'Playlist name required' });
+  try {
+    const info = db.prepare('INSERT INTO playlists (name) VALUES (?)').run(name);
+    const row = db.prepare('SELECT id, name, created_at FROM playlists WHERE id = ?').get(info.lastInsertRowid);
+    res.status(201).json(row);
+  } catch (err) {
+    logger.error('API', 'Error creating playlist', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Initial scan & server startup
-async function start() {
+// GET /api/playlists/:id  (resolves songs, ordered by position)
+app.get('/api/playlists/:id', (req, res) => {
+  try {
+    const pl = db.prepare('SELECT id, name, created_at FROM playlists WHERE id = ?').get(req.params.id);
+    if (!pl) return res.status(404).json({ error: 'Playlist not found' });
+    const songs = db.prepare(`
+      SELECT ${SONG_LIST_COLUMNS}
+      FROM playlist_songs ps JOIN songs s ON s.id = ps.song_id
+      WHERE ps.playlist_id = ?
+      ORDER BY ps.position ASC, s.id ASC
+    `).all(pl.id);
+    res.json({ ...pl, songs });
+  } catch (err) {
+    logger.error('API', 'Error fetching playlist', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/playlists/:id/songs  { songIds: [..] } — replace membership in order
+app.put('/api/playlists/:id/songs', (req, res) => {
+  const songIds = Array.isArray(req.body && req.body.songIds) ? req.body.songIds : [];
+  if (!songIds.length) return res.status(400).json({ error: 'songIds array required' });
+  const ids = songIds.map(Number).filter(Number.isInteger);
+  if (ids.length !== songIds.length) return res.status(400).json({ error: 'Invalid song id' });
+
+  try {
+    const pl = db.prepare('SELECT id FROM playlists WHERE id = ?').get(req.params.id);
+    if (!pl) return res.status(404).json({ error: 'Playlist not found' });
+
+    const placeholders = ids.map(() => '?').join(',');
+    const valid = db.prepare(`SELECT COUNT(*) AS c FROM songs WHERE id IN (${placeholders})`).get(...ids).c;
+    if (valid !== ids.length) return res.status(400).json({ error: 'One or more song ids do not exist' });
+
+    const replace = db.transaction(() => {
+      db.prepare('DELETE FROM playlist_songs WHERE playlist_id = ?').run(pl.id);
+      const ins = db.prepare('INSERT INTO playlist_songs (playlist_id, song_id, position) VALUES (?, ?, ?)');
+      ids.forEach((sid, i) => ins.run(pl.id, sid, i));
+    });
+    replace();
+    res.json({ success: true, count: ids.length });
+  } catch (err) {
+    logger.error('API', 'Error updating playlist', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/playlists/:id
+app.delete('/api/playlists/:id', (req, res) => {
+  try {
+    const info = db.prepare('DELETE FROM playlists WHERE id = ?').run(req.params.id);
+    if (!info.changes) return res.status(404).json({ error: 'Playlist not found' });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('API', 'Error deleting playlist', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Scan ----------------------------------------------------------------
+// Only ever scan inside MUSIC_DIR (never an arbitrary path from the client),
+// and serialize scans so two racing requests cannot purge each other's rows.
+const scanState = { running: false };
+
+app.post('/api/scan', async (req, res) => {
+  let targetDir = MUSIC_DIR;
+  const requested = req.body && req.body.dir;
+  if (requested) {
+    const resolved = path.resolve(String(requested));
+    const root = path.resolve(MUSIC_DIR || '');
+    const ok = root && (resolved === root || resolved.startsWith(root + path.sep));
+    if (!ok) {
+      return res.status(400).json({ error: 'Scan directory must be inside MUSIC_DIR' });
+    }
+  }
+  if (!targetDir) {
+    return res.status(400).json({ error: 'MUSIC_DIR path not configured in .env' });
+  }
+  if (scanState.running) {
+    return res.status(409).json({ error: 'A scan is already running' });
+  }
+
+  scanState.running = true;
+  try {
+    logger.info('SCAN', `Manual scan for: ${targetDir}`);
+    const result = await scanDirectory(targetDir);
+    res.json({ success: true, message: 'Scan completed successfully', result });
+  } catch (err) {
+    logger.error('SCAN', 'Scan failed', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    scanState.running = false;
+  }
+});
+
+// Fallback handler for Single Page Application routing (must stay before the
+// error middleware so an unknown /api/* path still returns JSON 404).
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  const indexPath = path.join(clientBuildPath, 'index.html');
+  if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
+  next();
+});
+
+// Final error handler: keep unhandled rejections from crashing with raw stacks
+app.use((err, req, res, next) => {
+  logger.error('SERVER', 'Unhandled error', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// ---- Startup ---------------------------------------------------------------
+// Listen FIRST so the player is reachable (and can serve already-indexed
+// songs) while the initial scan runs in the background.
+function start() {
   logger.info('SERVER', 'Starting keweb FLAC Music Player Server...');
-  if (process.env.MUSIC_DIR) {
-    await scanDirectory(process.env.MUSIC_DIR);
+
+  const server = app.listen(PORT, () => {
+    logger.info('SERVER', `keweb FLAC Music Player Server listening on port ${PORT}`);
+  });
+
+  server.on('error', (err) => {
+    logger.error('SERVER', 'Failed to listen', err);
+    process.exit(1); // let the supervisor (systemd) restart cleanly
+  });
+
+  if (MUSIC_DIR) {
+    scanDirectory(MUSIC_DIR)
+      .then(() => logger.info('SERVER', 'Initial scan finished'))
+      .catch((err) => logger.error('SERVER', 'Initial scan failed', err));
   } else {
     logger.error('SERVER', 'MUSIC_DIR is missing from environment variables.');
   }
-
-  app.listen(PORT, () => {
-    logger.info('SERVER', `keweb FLAC Music Player Server listening on port ${PORT}`);
-  });
 }
 
 start();

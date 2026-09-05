@@ -10,11 +10,39 @@ const APP_LOG_PATH = path.join(LOGS_DIR, 'app.log');
 const ACCESS_LOG_PATH = path.join(LOGS_DIR, 'access.log');
 const ERROR_LOG_PATH = path.join(LOGS_DIR, 'error.log');
 
+const MAX_LOG_BYTES = 20 * 1024 * 1024; // rotate at 20 MB
+const KEEP_ROTATIONS = 3;
+let rotationChecks = 0;
+
+function rotateIfNeeded(filePath) {
+  rotationChecks++;
+  if (rotationChecks % 256 !== 0) return; // amortize the stat cost
+  let size = 0;
+  try {
+    size = fs.statSync(filePath).size;
+  } catch (e) {
+    return; // file may not exist yet
+  }
+  if (size < MAX_LOG_BYTES) return;
+  // Shift .2 -> .3, .1 -> .2, current -> .1
+  try {
+    for (let i = KEEP_ROTATIONS; i > 1; i--) {
+      const from = `${filePath}.${i - 1}`;
+      const to = `${filePath}.${i}`;
+      if (fs.existsSync(from)) fs.renameSync(from, to);
+    }
+    fs.renameSync(filePath, `${filePath}.1`);
+  } catch (e) {
+    // Rotation is best effort; never crash the app for log hygiene
+  }
+}
+
 function formatTimestamp() {
   return new Date().toISOString();
 }
 
 function writeToFile(filePath, message) {
+  rotateIfNeeded(filePath);
   fs.appendFile(filePath, message + '\n', (err) => {
     if (err) console.error('[Logger Error]', err);
   });

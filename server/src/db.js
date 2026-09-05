@@ -62,11 +62,21 @@ db.exec(`
   );
 `);
 
-// Add lyrics column if upgrading existing database
-try {
-  db.exec('ALTER TABLE songs ADD COLUMN lyrics TEXT;');
-} catch (e) {
-  // Column already exists
+// Versioned migrations: run pending steps once, tracked in PRAGMA user_version
+const MIGRATIONS = [
+  { version: 1, sql: 'ALTER TABLE songs ADD COLUMN mime_type TEXT;' },
+];
+
+const currentVersion = db.pragma('user_version', { simple: true });
+for (const m of MIGRATIONS) {
+  if (currentVersion < m.version) {
+    try {
+      db.exec(m.sql);
+    } catch (e) {
+      // Column/table already exists from an older ad-hoc migration; ignore
+    }
+    db.pragma(`user_version = ${m.version}`);
+  }
 }
 
 module.exports = db;
