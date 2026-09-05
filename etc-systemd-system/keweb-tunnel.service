@@ -1,5 +1,5 @@
 [Unit]
-Description=keweb Cloudflare Tunnel Remote Daemon
+Description=keweb Cloudflare Tunnel Remote Daemon (root)
 After=keweb.service
 Wants=keweb.service
 
@@ -9,7 +9,9 @@ User=jo
 Group=jo
 WorkingDirectory=/home/jo/playering-flac
 EnvironmentFile=/home/jo/playering-flac/.env
-ExecStart=/home/jo/playering-flac/bin/cloudflared tunnel run --token <TOKEN_CLOUDFLARE_KAMU>
+# Token dibaca dari TUNNEL_TOKEN di .env (dipasok EnvironmentFile di atas).
+# Jangan taruh token di baris ini; itu akan bocor ke cmdline `ps`.
+ExecStart=/home/jo/playering-flac/bin/cloudflared tunnel run
 Restart=always
 RestartSec=5
 StandardOutput=journal
