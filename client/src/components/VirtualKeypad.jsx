@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
-  Shuffle, Repeat, RotateCcw
+  Shuffle, Repeat, Repeat1, RotateCcw
 } from 'lucide-react';
 
 export default function VirtualKeypad({
@@ -19,7 +19,7 @@ export default function VirtualKeypad({
   setVolume,
   isShuffle,
   toggleShuffle,
-  isRepeat,
+  repeatMode = 'off',
   toggleRepeat
 }) {
   const formatTime = (secs) => {
@@ -101,14 +101,20 @@ export default function VirtualKeypad({
 
           <button
             onClick={toggleRepeat}
-            title="Repeat Mode"
-            className={`p-2 rounded-xl transition-all ${
-              isRepeat
+            title={
+              repeatMode === 'one'
+                ? 'Repeat 1 Lagu'
+                : repeatMode === 'all'
+                ? 'Repeat Semua Antrean'
+                : 'Repeat Matikan'
+            }
+            className={`p-2 rounded-xl transition-all relative ${
+              repeatMode !== 'off'
                 ? 'bg-black text-[#FFC107] border-2 border-[#FFC107] shadow-md shadow-[#FFC107]/20 font-bold'
                 : 'bg-black/40 text-slate-400 border border-white/20 hover:text-white'
             }`}
           >
-            <Repeat size={16} />
+            {repeatMode === 'one' ? <Repeat1 size={16} /> : <Repeat size={16} />}
           </button>
         </div>
 

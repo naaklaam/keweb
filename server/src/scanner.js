@@ -17,9 +17,11 @@ const FOLDER_COVER_NAMES = [
   'album.jpg', 'album.jpeg', 'album.png', 'album.webp'
 ];
 
+const SUPPORTED_AUDIO_EXTENSIONS = ['.flac', '.mp3', '.m4a', '.wav', '.ogg', '.opus', '.aac', '.alac'];
+
 function extractLyricsFromMetadata(filePath, metadata) {
-  // 1. Primary: Check for external .lrc file next to the FLAC file (exact match or same basename)
-  const lrcCandidate = filePath.replace(/\.flac$/i, '.lrc');
+  // 1. Primary: Check for external .lrc file next to the audio file
+  const lrcCandidate = filePath.replace(/\.[^/.]+$/, '.lrc');
   if (fs.existsSync(lrcCandidate)) {
     try {
       const lrcContent = fs.readFileSync(lrcCandidate, 'utf-8');
@@ -31,7 +33,7 @@ function extractLyricsFromMetadata(filePath, metadata) {
     }
   }
 
-  // 2. Secondary: Check embedded FLAC metadata tags
+  // 2. Secondary: Check embedded metadata tags
   const common = metadata.common || {};
   const native = metadata.native || {};
 
@@ -97,8 +99,11 @@ async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
   }
 
   const files = getFilesRecursively(rootMusicDir);
-  const flacFiles = files.filter(f => f.toLowerCase().endsWith('.flac'));
-  console.log(`[Scanner] Found ${flacFiles.length} FLAC files.`);
+  const audioFiles = files.filter(f => {
+    const ext = path.extname(f).toLowerCase();
+    return SUPPORTED_AUDIO_EXTENSIONS.includes(ext);
+  });
+  console.log(`[Scanner] Found ${audioFiles.length} audio tracks (${audioFiles.filter(f => f.toLowerCase().endsWith('.flac')).length} FLAC).`);
 
   const insertStmt = db.prepare(`
     INSERT INTO songs (
@@ -129,13 +134,14 @@ async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
   `);
 
   let addedCount = 0;
-  for (const filePath of flacFiles) {
+  for (const filePath of audioFiles) {
     try {
       const stats = fs.statSync(filePath);
       const mtime = Math.floor(stats.mtimeMs);
 
       const metadata = await mm.parseFile(filePath, { skipCovers: false });
       const filename = path.basename(filePath);
+      const fileExt = path.extname(filePath).toLowerCase();
       const common = metadata.common || {};
       const format = metadata.format || {};
 
@@ -151,6 +157,8 @@ async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
       const bitsPerSample = format.bitsPerSample || 16;
       const bitrate = format.bitrate || 0;
       const channels = format.numberOfChannels || 2;
+      const isLossless = format.lossless ? 1 : (['.flac', '.wav', '.alac'].includes(fileExt) ? 1 : 0);
+      const containerName = (format.container || fileExt.replace('.', '')).toUpperCase();
 
       const lyrics = extractLyricsFromMetadata(filePath, metadata);
 
@@ -158,7 +166,7 @@ async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
       let coverMime = null;
       let coverBuffer = null;
 
-      // 1. Primary: Extract embedded picture tag from individual FLAC file
+      // 1. Primary: Extract embedded picture tag from individual audio file
       if (common.picture && common.picture.length > 0) {
         const pic = common.picture[0];
         hasCover = 1;
@@ -212,8 +220,8 @@ async function scanDirectory(dirPath = process.env.MUSIC_DIR) {
         bitsPerSample,
         bitrate,
         channels,
-        1,
-        'FLAC',
+        isLossless,
+        containerName,
         hasCover,
         coverMime,
         lyrics,

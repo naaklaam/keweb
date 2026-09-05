@@ -1,8 +1,9 @@
-import { Clock, Disc, Disc3, ListMusic, Music2, Search } from "lucide-react";
+import { Clock, Disc, Disc3, ListMusic, Music2, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 
-export default function TerminalHeader({ activeTab, setActiveTab, stats = {}, songs = [], queue = [] }) {
+export default function TerminalHeader({ activeTab, setActiveTab, stats = {}, songs = [], queue = [], onRescan }) {
   const [time, setTime] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
     const updateClock = () => {
@@ -13,6 +14,18 @@ export default function TerminalHeader({ activeTab, setActiveTab, stats = {}, so
     const interval = setInterval(updateClock, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleScanClick = async () => {
+    if (isScanning) return;
+    setIsScanning(true);
+    try {
+      if (onRescan) await onRescan();
+    } catch (e) {
+      console.error('Rescan failed:', e);
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const totalLibraryCount = (songs && songs.length > 0) ? songs.length : (stats.totalSongs || 0);
 
@@ -74,14 +87,24 @@ export default function TerminalHeader({ activeTab, setActiveTab, stats = {}, so
         })}
       </nav>
 
-      {/* System Stats & Live Clock */}
-      <div className="hidden md:flex items-center space-x-4 text-xs text-slate-400 font-medium">
+      {/* System Stats, Rescan & Live Clock */}
+      <div className="flex items-center space-x-2 sm:space-x-3 text-xs text-slate-400 font-medium">
+        <button
+          onClick={handleScanClick}
+          disabled={isScanning}
+          title="Pindai ulang folder musik"
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-black/60 border border-white/20 text-slate-300 hover:text-[#FFC107] hover:border-[#FFC107]/40 transition-all text-xs font-semibold"
+        >
+          <RefreshCw size={12} className={isScanning ? "animate-spin text-[#FFC107]" : "text-slate-400"} />
+          <span>{isScanning ? "Memindai..." : "Scan Extra"}</span>
+        </button>
+
         {stats.hiResCount > 0 && (
-          <span className="flex items-center space-x-1 text-purple-300 bg-purple-500/10 border border-purple-500/30 px-2.5 py-1 rounded-full text-[11px]">
-            <span>{stats.hiResCount} Hi-Res Tracks</span>
+          <span className="hidden md:inline-flex items-center space-x-1 text-purple-300 bg-purple-500/10 border border-purple-500/30 px-2.5 py-1 rounded-full text-[11px]">
+            <span>{stats.hiResCount} Hi-Res</span>
           </span>
         )}
-        <div className="flex items-center space-x-1.5 bg-black/60 border border-white/10 px-3 py-1 rounded-full text-slate-300">
+        <div className="hidden md:flex items-center space-x-1.5 bg-black/60 border border-white/10 px-3 py-1 rounded-full text-slate-300">
           <Clock size={13} className="text-[#FFC107]" />
           <span className="font-mono text-xs tracking-wider">{time}</span>
         </div>

@@ -33,11 +33,11 @@ start_service() {
 
   echo "------------------------------------------------------------"
   echo " STATUS:        ONLINE & HEALTHY (Systemd Managed Daemon)"
-  echo " Service Units: keweb.service | keweb-tunnel.service"
+  echo " Service Units: keweb.service | cloudflared.service"
   echo " Local Access:   http://localhost:${PORT}"
-  echo " Remote URL:     https://${SUBDOMAIN}.loca.lt"
-  echo " Tunnel Pass:    ${TUNNEL_PASS} (Masukkan 1x jika diminta di HP)"
-  echo " Journalctl:    journalctl --user -u keweb -u keweb-tunnel -f"
+  echo " Custom Domain:  https://keweb.my.id"
+  echo " Fallback URL:  https://${SUBDOMAIN}.loca.lt"
+  echo " Journalctl:    journalctl --user -u keweb -f"
   echo "------------------------------------------------------------"
 }
 

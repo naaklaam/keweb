@@ -18,7 +18,15 @@ export default function App() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isShuffle, setIsShuffle] = useState(false);
-  const [isRepeat, setIsRepeat] = useState(false);
+  const [repeatMode, setRepeatMode] = useState('off'); // 'off' | 'all' | 'one'
+
+  const toggleRepeat = () => {
+    setRepeatMode(prev => {
+      if (prev === 'off') return 'all';
+      if (prev === 'all') return 'one';
+      return 'off';
+    });
+  };
 
   // Dynamic Theme Palette State
   const [themeStyle, setThemeStyle] = useState({
@@ -55,6 +63,16 @@ export default function App() {
     }
   };
 
+  const handleRescan = async () => {
+    try {
+      await fetch('/api/scan', { method: 'POST' });
+      await fetchSongs();
+      await fetchStats();
+    } catch (e) {
+      console.error('Rescan failed:', e);
+    }
+  };
+
   const currentSong = currentQueueIndex >= 0 && currentQueueIndex < queue.length ? queue[currentQueueIndex] : null;
 
   // Dynamic Palette Extraction when currentSong changes
@@ -86,9 +104,8 @@ export default function App() {
     if (idx !== -1) {
       setCurrentQueueIndex(idx);
     } else {
-      const updatedQueue = [...targetQueue, song];
-      setQueue(updatedQueue);
-      setCurrentQueueIndex(updatedQueue.length - 1);
+      setQueue(prev => [...prev, song]);
+      setCurrentQueueIndex(queue.length);
     }
     setIsPlaying(true);
   };
@@ -105,9 +122,6 @@ export default function App() {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      if (currentQueueIndex === -1 && queue.length > 0) {
-        setCurrentQueueIndex(0);
-      }
       audioRef.current.play().then(() => setIsPlaying(true)).catch(e => console.error(e));
     }
   };
@@ -123,15 +137,25 @@ export default function App() {
     setIsPlaying(true);
   };
 
-  // Play next track
-  const playNext = () => {
+  // Play next track (isManual true when user clicks Next button)
+  const playNext = (isManual = false) => {
     if (queue.length === 0) return;
+
+    // Repeat 1 track logic on natural end of song
+    if (!isManual && repeatMode === 'one') {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+      }
+      return;
+    }
+
     if (isShuffle) {
       const randIdx = Math.floor(Math.random() * queue.length);
       setCurrentQueueIndex(randIdx);
     } else if (currentQueueIndex < queue.length - 1) {
       setCurrentQueueIndex(prev => prev + 1);
-    } else if (isRepeat) {
+    } else if (repeatMode === 'all' || repeatMode === 'one') {
       setCurrentQueueIndex(0);
     } else {
       setIsPlaying(false);
@@ -171,7 +195,7 @@ export default function App() {
         }
       });
       navigator.mediaSession.setActionHandler('previoustrack', playPrev);
-      navigator.mediaSession.setActionHandler('nexttrack', playNext);
+      navigator.mediaSession.setActionHandler('nexttrack', () => playNext(true));
       try {
         navigator.mediaSession.setActionHandler('seekbackward', () => seek(-5));
         navigator.mediaSession.setActionHandler('seekforward', () => seek(5));
@@ -213,7 +237,7 @@ export default function App() {
         case 'l':
         case 'ArrowRight':
           e.preventDefault();
-          playNext();
+          playNext(true);
           break;
         case 'a':
           e.preventDefault();
@@ -229,7 +253,7 @@ export default function App() {
           break;
         case 'r':
           e.preventDefault();
-          setIsRepeat(prev => !prev);
+          toggleRepeat();
           break;
         case '/':
           e.preventDefault();
@@ -242,7 +266,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentSong, queue, isPlaying, currentQueueIndex, isShuffle, isRepeat]);
+  }, [currentSong, queue, isPlaying, currentQueueIndex, isShuffle, repeatMode]);
 
   // Auto-play when currentSong changes
   useEffect(() => {
@@ -281,7 +305,7 @@ export default function App() {
           }
         }}
         onLoadedMetadata={() => setDuration(audioRef.current ? audioRef.current.duration : 0)}
-        onEnded={playNext}
+        onEnded={() => playNext(false)}
       />
 
       {/* Top Navigation Header */}
@@ -291,6 +315,7 @@ export default function App() {
         stats={stats}
         songs={songs}
         queue={queue}
+        onRescan={handleRescan}
       />
 
       {/* Main View Area */}
@@ -356,7 +381,7 @@ export default function App() {
         isPlaying={isPlaying}
         togglePlay={togglePlay}
         playPrev={playPrev}
-        playNext={playNext}
+        playNext={() => playNext(true)}
         seek={seek}
         currentTime={currentTime}
         duration={duration}
@@ -365,8 +390,8 @@ export default function App() {
         setVolume={(v) => { setVolume(v); if (audioRef.current) audioRef.current.volume = v; }}
         isShuffle={isShuffle}
         toggleShuffle={() => setIsShuffle(prev => !prev)}
-        isRepeat={isRepeat}
-        toggleRepeat={() => setIsRepeat(prev => !prev)}
+        repeatMode={repeatMode}
+        toggleRepeat={toggleRepeat}
       />
     </div>
   );
