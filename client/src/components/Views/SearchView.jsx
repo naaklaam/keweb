@@ -374,7 +374,7 @@ export default function SearchView({ songs, onPlayList, onAddToQueue, currentSon
         </div>
 
         {/* Filter Pills & Actions */}
-        <div className="flex items-center space-x-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 text-xs">
+        <div className="flex items-center space-x-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 text-xs [touch-action:pan-x]">
           {[
             { id: 'all', label: 'Semua' },
             { id: 'album', label: 'Album' },

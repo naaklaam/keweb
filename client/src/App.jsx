@@ -8,6 +8,21 @@ import TrackView from './components/Views/TrackView';
 import SearchView from './components/Views/SearchView';
 import { extractCoverPalette } from './utils/colorExtractor';
 
+// Order of bottom/sidebar sections; swipe left/right cycles through these.
+const TAB_ORDER = ['library', 'queue', 'track', 'playlist'];
+const SWIPE_IGNORE = 'input, select, textarea, button, a, [role="slider"], [data-swipe-ignore]';
+
+// True when the touch started inside a horizontally scrollable area (e.g. the
+// filter pills row): let the user scroll it instead of navigating tabs.
+function isHorizontalScrollArea(touchTarget, containerEl) {
+  let el = touchTarget;
+  while (el && el !== containerEl && el.parentElement !== containerEl) {
+    if (el.scrollWidth > el.clientWidth + 2) return true;
+    el = el.parentElement;
+  }
+  return false;
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('library'); // 'playlist', 'library', 'track', 'search'
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
@@ -37,6 +52,9 @@ export default function App() {
   });
 
   const audioRef = useRef(null);
+  const containerRef = useRef(null);
+  const swipeRef = useRef({ x: 0, y: 0, ok: false, active: false });
+  const [animDir, setAnimDir] = useState(null); // 'next' | 'prev' | null (utk animasi slide)
 
   // Auto-scan music directory on page load/refresh & fetch songs + stats
   useEffect(() => {
@@ -291,9 +309,53 @@ export default function App() {
     }
   }, [currentQueueIndex]);
 
+  // ---- Mobile swipe navigation between views ----
+  // Geser kiri -> bagian berikutnya, geser kanan -> bagian sebelumnya.
+  const handleTouchStart = (e) => {
+    if (e.touches.length !== 1) {
+      swipeRef.current.active = false;
+      return;
+    }
+    const t = e.touches[0];
+    const target = e.target;
+    const blocked =
+      isSidebarOpen ||
+      (target && target.closest && target.closest(SWIPE_IGNORE)) ||
+      isHorizontalScrollArea(target, containerRef.current);
+    swipeRef.current = { x: t.clientX, y: t.clientY, ok: !blocked, active: true };
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!swipeRef.current.active) return;
+    const s = swipeRef.current;
+    swipeRef.current.active = false;
+    if (!s.ok) return;
+    if (e.changedTouches.length !== 1) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    // Butuh swipe horizontal minimal 60px dan lebih dominan dari scroll vertikal
+    if (Math.abs(dx) < 60 || Math.abs(dy) * 1.25 > Math.abs(dx)) return;
+
+    const idx = TAB_ORDER.indexOf(activeTab);
+    if (idx === -1) return;
+    if (dx < 0) {
+      // geser kiri -> lanjut
+      setAnimDir('next');
+      setActiveTab(TAB_ORDER[(idx + 1) % TAB_ORDER.length]);
+    } else {
+      // geser kanan -> kembali
+      setAnimDir('prev');
+      setActiveTab(TAB_ORDER[(idx - 1 + TAB_ORDER.length) % TAB_ORDER.length]);
+    }
+  };
+
   return (
     <div
-      className="flex flex-col h-screen text-slate-100 font-sans overflow-hidden transition-all duration-1000"
+      ref={containerRef}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className="flex flex-col h-screen text-slate-100 font-sans overflow-hidden transition-all duration-1000 [touch-action:pan-y]"
       style={{ background: themeStyle.bgGradient }}
     >
       {/* HTML5 Audio Element with iOS background playback optimizations */}
@@ -340,7 +402,13 @@ export default function App() {
         />
 
         {/* Active View Container */}
-        <main className="flex-1 overflow-hidden relative">
+        <main
+          key={activeTab}
+          onAnimationEnd={() => setAnimDir(null)}
+          className={`flex-1 overflow-hidden relative ${
+            animDir ? (animDir === 'next' ? 'view-enter-next' : 'view-enter-prev') : ''
+          }`}
+        >
           {activeTab === 'queue' && (
             <PlaylistView
               queue={queue}
