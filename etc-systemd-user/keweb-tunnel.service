@@ -1,5 +1,5 @@
 [Unit]
-Description=keweb Localtunnel Remote Tunnel Daemon (user)
+Description=keweb Cloudflare Tunnel Remote Daemon (user)
 After=keweb.service
 Wants=keweb.service
 
@@ -7,7 +7,7 @@ Wants=keweb.service
 Type=simple
 WorkingDirectory=/home/jo/playering-flac
 EnvironmentFile=/home/jo/playering-flac/.env
-ExecStart=/usr/bin/node /home/jo/playering-flac/server/src/tunnel-runner.js
+ExecStart=/home/jo/playering-flac/bin/cloudflared tunnel run
 Restart=always
 RestartSec=5
 StandardOutput=journal
