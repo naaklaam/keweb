@@ -39,7 +39,7 @@ export default function SidebarNav({
 
       {/* Sidebar / Drawer Container */}
       <aside
-        className={`fixed md:relative top-0 left-0 h-full z-40 bg-[#03071E]/95 md:bg-black/40 border-r border-white/10 backdrop-blur-xl transition-all duration-300 flex flex-col ${
+        className={`fixed md:relative top-0 left-0 h-full z-40 bg-[#03071E]/95 md:bg-transparent border-r border-white/10 backdrop-blur-md transition-all duration-300 flex flex-col ${
           isOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-16'
         }`}
       >
@@ -70,7 +70,7 @@ export default function SidebarNav({
                 title={tab.label}
                 className={`w-full flex items-center space-x-3.5 px-4 py-3 text-sm font-medium transition-all group border-l-4 ${
                   isActive
-                    ? 'border-[#FFC107] text-[#FFC107] bg-white/5 font-bold shadow-sm'
+                    ? 'border-[#FFC107] text-[#FFC107] bg-[#FFC107]/10 font-bold'
                     : 'border-transparent text-slate-400 hover:text-[#FFC107] hover:bg-white/5'
                 }`}
               >
