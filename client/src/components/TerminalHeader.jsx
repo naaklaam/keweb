@@ -33,9 +33,7 @@ export default function TerminalHeader({ stats = {}, onToggleSidebar }) {
           <div>
             <h1 className="text-base font-extrabold tracking-tight text-white flex items-center space-x-2">
               <span>Keweb</span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-black text-[#FFC107] border border-[#FFC107]/30">
-                FLAC
-              </span>
+             
             </h1>
             <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
               Lossless Audio Player
