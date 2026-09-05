@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
+  Play, Pause, SkipBack, SkipForward,
   Shuffle, Repeat, Repeat1, RotateCcw
 } from 'lucide-react';
 
@@ -15,8 +15,6 @@ export default function VirtualKeypad({
   currentTime,
   duration,
   onSeekTo,
-  volume,
-  setVolume,
   isShuffle,
   toggleShuffle,
   repeatMode = 'off',
@@ -32,7 +30,7 @@ export default function VirtualKeypad({
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <footer className="px-4 py-3 space-y-2.5 bg-transparent backdrop-blur-sm">
+    <footer className="px-4 py-2.5 space-y-2 bg-transparent backdrop-blur-sm">
       {/* Thread-Thin Gold Seek Progress Bar */}
       <div className="flex items-center space-x-3 text-xs font-mono">
         <span className="text-slate-300 font-medium w-10 text-right">{formatTime(currentTime)}</span>
@@ -59,10 +57,10 @@ export default function VirtualKeypad({
         <span className="text-slate-400 font-medium w-10 text-left">{formatTime(duration)}</span>
       </div>
 
-      {/* Control Buttons & Volume Row */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+      {/* Control Buttons Row */}
+      <div className="flex items-center justify-between pt-0.5">
         {/* Playback Control Buttons - Unboxed & Well-Spaced */}
-        <div className="flex items-center space-x-5 sm:space-x-7">
+        <div className="flex items-center space-x-4 sm:space-x-7">
           <button
             onClick={toggleShuffle}
             title="Shuffle Mode"
@@ -129,7 +127,7 @@ export default function VirtualKeypad({
         </div>
 
         {/* Quick Seek Shortcut Buttons - Unboxed */}
-        <div className="flex items-center space-x-4 text-xs font-semibold">
+        <div className="flex items-center space-x-3 text-xs font-semibold">
           <button
             onClick={() => seek(-5)}
             className="p-1 text-slate-400 hover:text-[#FFC107] transition-colors flex items-center space-x-1.5"
@@ -145,25 +143,6 @@ export default function VirtualKeypad({
             <RotateCcw size={14} className="rotate-180" />
             <span>+5s</span>
           </button>
-        </div>
-
-        {/* Volume Slider Controls */}
-        <div className="flex items-center space-x-2 text-slate-400">
-          <button
-            onClick={() => setVolume(volume === 0 ? 1 : 0)}
-            className="p-1.5 hover:text-white transition-colors"
-          >
-            {volume === 0 ? <VolumeX size={18} className="text-rose-400" /> : <Volume2 size={18} />}
-          </button>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={volume}
-            onChange={(e) => setVolume(parseFloat(e.target.value))}
-            className="w-20 sm:w-28 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#FFC107]"
-          />
         </div>
       </div>
     </footer>

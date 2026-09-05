@@ -409,8 +409,6 @@ export default function App() {
         currentTime={currentTime}
         duration={duration}
         onSeekTo={(t) => { if (audioRef.current) audioRef.current.currentTime = t; }}
-        volume={volume}
-        setVolume={(v) => { setVolume(v); if (audioRef.current) audioRef.current.volume = v; }}
         isShuffle={isShuffle}
         toggleShuffle={() => setIsShuffle(prev => !prev)}
         repeatMode={repeatMode}
