@@ -56,9 +56,12 @@ export default function App() {
   const fetchSongs = async () => {
     try {
       const res = await fetch('/api/songs');
+      if (!res.ok) {
+        console.error('Failed to fetch songs:', res.status);
+        return;
+      }
       const data = await res.json();
       setSongs(data);
-      setQueue(data);
     } catch (e) {
       console.error('Failed to fetch songs:', e);
     }
@@ -67,6 +70,10 @@ export default function App() {
   const fetchStats = async () => {
     try {
       const res = await fetch('/api/stats');
+      if (!res.ok) {
+        console.error('Failed to fetch stats:', res.status);
+        return;
+      }
       const data = await res.json();
       setStats(data);
     } catch (e) {
@@ -93,22 +100,27 @@ export default function App() {
     }
   }, [currentSong]);
 
-  // Play a song from Library or Search
-  const handlePlaySong = (song) => {
-    let targetQueue = queue;
-    if (targetQueue.length === 0 && songs.length > 0) {
-      targetQueue = songs;
-      setQueue(songs);
-    }
-
-    const idx = targetQueue.findIndex(s => s.id === song.id);
-    if (idx !== -1) {
-      setCurrentQueueIndex(idx);
-    } else {
-      setQueue(prev => [...prev, song]);
-      setCurrentQueueIndex(queue.length);
-    }
+  // Play a specific list of songs (replaces the queue). Used by "play
+  // collection" (album / artist / playlist) and by single-song clicks from the
+  // library. Fixes the old bug where the queue was permanently aliased to the
+  // whole library, making playlist-order playback impossible.
+  const playFromList = (list, index = 0) => {
+    if (!list || list.length === 0) return;
+    setQueue(list);
+    setCurrentQueueIndex(Math.max(0, Math.min(index, list.length - 1)));
     setIsPlaying(true);
+  };
+
+  // Play a song from the Library screen: keeps the whole library as queue
+  // context so Previous/Next walk the library order.
+  const handlePlaySong = (song) => {
+    if (!song) return;
+    const idx = songs.findIndex(s => s.id === song.id);
+    if (idx >= 0) {
+      playFromList(songs, idx);
+    } else {
+      playFromList([song], 0);
+    }
   };
 
   // Add song to queue without immediately switching
@@ -377,6 +389,7 @@ export default function App() {
             <SearchView
               songs={songs}
               onPlaySong={handlePlaySong}
+              onPlayList={playFromList}
               onAddToQueue={handleAddToQueue}
               currentSong={currentSong}
             />

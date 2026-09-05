@@ -1,30 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import {
   Play, Plus, Disc, FolderPlus, ArrowLeft, Music2,
-  ShieldCheck, ListMusic, Sparkles, Trash2, Search, Check
+  ShieldCheck, ListMusic, Trash2, Search
 } from 'lucide-react';
 
-export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSong }) {
+export default function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'album', 'artist', 'hires', 'custom'
   const [searchQuery, setSearchQuery] = useState('');
-  const [customPlaylists, setCustomPlaylists] = useState(() => {
-    try {
-      const saved = localStorage.getItem('keweb_custom_playlists');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [serverPlaylists, setServerPlaylists] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
 
-  // Save custom playlists to localStorage
-  useEffect(() => {
+  // Playlists live on the server (playlists + playlist_songs tables), not in
+  // localStorage, so they are shared across devices and survive cache clears.
+  const loadPlaylists = async () => {
     try {
-      localStorage.setItem('keweb_custom_playlists', JSON.stringify(customPlaylists));
-    } catch (e) {}
-  }, [customPlaylists]);
+      const res = await fetch('/api/playlists');
+      if (!res.ok) return;
+      setServerPlaylists(await res.json());
+    } catch (e) {
+      console.error('Failed to load playlists:', e);
+    }
+  };
+
+  useEffect(() => {
+    loadPlaylists();
+  }, []);
+
+  const fetchPlaylistDetail = async (id) => {
+    try {
+      const res = await fetch(`/api/playlists/${id}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      console.error('Failed to load playlist:', e);
+      return null;
+    }
+  };
+
+  const openPlaylist = async (item) => {
+    if (item.type === 'custom') {
+      const detail = await fetchPlaylistDetail(item.id);
+      if (!detail) return;
+      setSelectedPlaylist({
+        ...detail,
+        type: 'custom',
+        isHiRes: false,
+        artist: null,
+        title: detail.name,
+        subtitle: `${detail.songs.length} Lagu`,
+      });
+    } else {
+      setSelectedPlaylist(item);
+    }
+  };
 
   // Group songs into Albums
   const albumMap = {};
@@ -49,7 +79,6 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
       albumMap[albumName].isHiRes = true;
     }
   });
-
   const albums = Object.values(albumMap);
 
   // Group songs into Artists
@@ -72,13 +101,11 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
       artistMap[artistName].coverSongId = song.id;
     }
   });
-
   const artists = Object.values(artistMap);
 
   // Curated Hi-Res Playlist
   const hiResSongs = songs.filter(s => s.bits_per_sample > 16 || s.sample_rate > 44100);
   const curatedPlaylists = [];
-
   if (hiResSongs.length > 0) {
     curatedPlaylists.push({
       id: 'curated-hires',
@@ -91,19 +118,17 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
     });
   }
 
-  // Map custom playlists
-  const userPlaylists = customPlaylists.map(pl => {
-    const plSongs = songs.filter(s => pl.songIds.includes(s.id));
-    return {
-      id: pl.id,
-      type: 'custom',
-      title: pl.name,
-      subtitle: `${plSongs.length} Songs`,
-      coverSongId: plSongs.find(s => s.has_cover)?.id || null,
-      songs: plSongs,
-      rawCustom: pl,
-    };
-  });
+  // Server-backed custom playlists
+  const userPlaylists = serverPlaylists.map(pl => ({
+    id: String(pl.id),
+    type: 'custom',
+    title: pl.name,
+    subtitle: `${pl.song_count} Lagu`,
+    song_count: pl.song_count,
+    coverSongId: null,
+    songs: [],
+    isHiRes: false,
+  }));
 
   // Filter items for grid display
   let allItems = [];
@@ -128,23 +153,32 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
     );
   }
 
-  const handleCreatePlaylist = (e) => {
+  const handleCreatePlaylist = async (e) => {
     e.preventDefault();
     if (!newPlaylistName.trim()) return;
-    const newPl = {
-      id: `custom-${Date.now()}`,
-      name: newPlaylistName.trim(),
-      songIds: [],
-    };
-    setCustomPlaylists(prev => [...prev, newPl]);
+    try {
+      const res = await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newPlaylistName.trim() }),
+      });
+      if (res.ok) await loadPlaylists();
+    } catch (err) {
+      console.error('Failed to create playlist:', err);
+    }
     setNewPlaylistName('');
     setIsCreating(false);
   };
 
-  const handleDeleteCustomPlaylist = (e, plId) => {
+  const handleDeleteCustomPlaylist = async (e, plId) => {
     e.stopPropagation();
-    setCustomPlaylists(prev => prev.filter(p => p.id !== plId));
-    if (selectedPlaylist && selectedPlaylist.id === plId) {
+    try {
+      await fetch(`/api/playlists/${plId}`, { method: 'DELETE' });
+      await loadPlaylists();
+    } catch (err) {
+      console.error('Failed to delete playlist:', err);
+    }
+    if (selectedPlaylist && String(selectedPlaylist.id) === String(plId)) {
       setSelectedPlaylist(null);
     }
   };
@@ -156,19 +190,28 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const playPlaylist = (pl, e) => {
-    if (e) e.stopPropagation();
-    if (!pl.songs || pl.songs.length === 0) return;
-    onPlaySong(pl.songs[0]);
-    for (let i = 1; i < pl.songs.length; i++) {
-      onAddToQueue(pl.songs[i]);
+  // Resolve songs for a collection, loading server playlists on demand
+  const songsFor = async (item) => {
+    if (item.songs && item.songs.length > 0) return item.songs;
+    if (item.type === 'custom') {
+      const detail = await fetchPlaylistDetail(item.id);
+      return detail ? detail.songs : [];
     }
+    return [];
   };
 
-  const addPlaylistToQueue = (pl, e) => {
+  const playPlaylist = async (item, e) => {
     if (e) e.stopPropagation();
-    if (!pl.songs) return;
-    pl.songs.forEach(song => onAddToQueue(song));
+    const list = await songsFor(item);
+    if (!list || list.length === 0) return;
+    onPlayList(list, 0);
+  };
+
+  const addPlaylistToQueue = async (item, e) => {
+    if (e) e.stopPropagation();
+    const list = await songsFor(item);
+    if (!list) return;
+    list.forEach(song => onAddToQueue(song));
   };
 
   // Render Playlist Detail View if a playlist is selected
@@ -225,7 +268,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
           <div className="flex items-center space-x-3 w-full md:w-auto justify-end">
             <button
               onClick={() => playPlaylist(selectedPlaylist)}
-              disabled={selectedPlaylist.songs.length === 0}
+              disabled={!selectedPlaylist.songs || selectedPlaylist.songs.length === 0}
               className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-5 py-3 rounded-2xl bg-black text-[#FFC107] border-2 border-[#FFC107] font-bold text-xs shadow-lg shadow-[#FFC107]/25 hover:scale-105 active:scale-95 transition-all disabled:opacity-40"
             >
               <Play size={16} className="fill-[#FFC107] text-[#FFC107]" />
@@ -234,7 +277,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
 
             <button
               onClick={() => addPlaylistToQueue(selectedPlaylist)}
-              disabled={selectedPlaylist.songs.length === 0}
+              disabled={!selectedPlaylist.songs || selectedPlaylist.songs.length === 0}
               className="flex items-center justify-center space-x-2 px-4 py-3 rounded-2xl bg-black/40 border border-white/20 text-slate-200 hover:text-white font-bold text-xs transition-all disabled:opacity-40"
               title="Tambah semua ke Antrean"
             >
@@ -253,7 +296,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
                 return (
                   <div
                     key={`${song.id}-${index}`}
-                    onClick={() => onPlaySong(song)}
+                    onClick={() => onPlayList(selectedPlaylist.songs, index)}
                     className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all ${
                       isCurrent
                         ? 'bg-black border-2 border-[#FFC107] text-white shadow-lg shadow-[#FFC107]/15'
@@ -418,7 +461,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
             {allItems.map((item) => (
               <div
                 key={item.id}
-                onClick={() => setSelectedPlaylist(item)}
+                onClick={() => openPlaylist(item)}
                 className="group relative flex flex-col bg-slate-900/40 hover:bg-slate-800/70 border border-white/10 hover:border-[#FFC107]/50 rounded-2xl p-3 cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-[#FFC107]/10 hover:-translate-y-1 backdrop-blur-sm"
               >
                 {/* Card Image Box */}
@@ -479,7 +522,7 @@ export default function SearchView({ songs, onPlaySong, onAddToQueue, currentSon
                     {item.artist || item.subtitle || `${item.songs.length} Lagu`}
                   </p>
                   <p className="text-[10px] text-slate-500 font-medium">
-                    {item.songs.length} Tracks
+                    {(item.song_count ?? (item.songs ? item.songs.length : 0))} Tracks
                   </p>
                 </div>
               </div>

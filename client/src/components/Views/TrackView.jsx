@@ -5,6 +5,7 @@ import { parseLyrics, getActiveLyricIndex } from '../../utils/lrcParser';
 export default function TrackView({ song, isPlaying, audioRef, currentTime, duration, onSeek }) {
   const [activeSubTab, setActiveSubTab] = useState('lyrics'); // 'lyrics' or 'specs'
   const [syncedLyricsData, setSyncedLyricsData] = useState(null);
+  const [detailLyrics, setDetailLyrics] = useState(null);
   const [syncOffset, setSyncOffset] = useState(0); // Offset in seconds (-2.0s to +2.0s)
   const [isLoadingLrc, setIsLoadingLrc] = useState(false);
   const activeLineRef = useRef(null);
@@ -18,6 +19,19 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
 
   const isHiRes = song && (song.bits_per_sample > 16 || song.sample_rate > 44100);
 
+// Lyrics are no longer shipped in the /api/songs list (it is heavy); fetch the
+  // detail row which includes the lyrics column (still never the filepath).
+  useEffect(() => {
+    setDetailLyrics(null);
+    if (!song) return;
+    let cancelled = false;
+    fetch(`/api/songs/${song.id}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(detail => { if (!cancelled && detail) setDetailLyrics(detail.lyrics || null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [song?.id]);
+
   // Auto-fetch online synced LRC lyrics with 2-stage LRCLIB lookup (exact get -> search query fallback)
   useEffect(() => {
     setSyncedLyricsData(null);
@@ -28,9 +42,10 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
     const savedOffset = localStorage.getItem(`lrc_offset_${song.id}`);
     setSyncOffset(savedOffset ? parseFloat(savedOffset) : 0);
 
-    const hasLocalLrc = song.lyrics && /\[\d{2}:\d{2}/.test(song.lyrics);
+    const baseLyrics = detailLyrics ?? (song ? song.lyrics : null);
+    const hasLocalLrc = baseLyrics && /\[\d{2}:\d{2}/.test(baseLyrics);
     if (hasLocalLrc) {
-      setSyncedLyricsData(song.lyrics);
+      setSyncedLyricsData(baseLyrics);
       return;
     }
 
@@ -59,25 +74,27 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                     return;
                   }
                   const plainItem = searchResults.find(item => item.plainLyrics && item.plainLyrics.trim());
-                  if (plainItem && !song.lyrics) {
+                  if (plainItem && !baseLyrics) {
                     setSyncedLyricsData(plainItem.plainLyrics);
-                    return;
+                  } else {
+                    setSyncedLyricsData(baseLyrics || null);
                   }
+                } else {
+                  setSyncedLyricsData(baseLyrics || null);
                 }
-                setSyncedLyricsData(song.lyrics || null);
               });
           }
         })
         .catch(() => {
-          setSyncedLyricsData(song.lyrics || null);
+          setSyncedLyricsData(baseLyrics || null);
         })
         .finally(() => {
           setIsLoadingLrc(false);
         });
     } else {
-      setSyncedLyricsData(song.lyrics || null);
+      setSyncedLyricsData(baseLyrics || null);
     }
-  }, [song?.id]);
+  }, [song?.id, detailLyrics]);
 
   // Handle sync offset changes and persist to localStorage per song
   const handleOffsetChange = (delta) => {
@@ -98,7 +115,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
   };
 
   // Parse lyrics with timestamps & applied sync offset
-  const activeLyricsText = syncedLyricsData || (song ? song.lyrics : '');
+  const activeLyricsText = syncedLyricsData || detailLyrics || (song ? song.lyrics : '');
   const isHasLrcTimestamps = activeLyricsText && /\[\d{2}:\d{2}/.test(activeLyricsText);
   const parsedLyrics = parseLyrics(activeLyricsText, duration, syncOffset);
   const activeLyricIndex = getActiveLyricIndex(parsedLyrics, currentTime);
@@ -357,9 +374,9 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
             {activeSubTab === 'specs' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="glass-pill p-4 rounded-2xl flex items-center justify-between">
-                  <span className="text-slate-400 font-medium">Full File Path</span>
-                  <span className="text-slate-200 font-mono text-[11px] truncate max-w-[240px]" title={song.filepath}>
-                    {song.filepath}
+                  <span className="text-slate-400 font-medium">Filename</span>
+                  <span className="text-slate-200 font-mono text-[11px] truncate max-w-[240px]" title={song.filename}>
+                    {song.filename}
                   </span>
                 </div>
                 <div className="glass-pill p-4 rounded-2xl flex items-center justify-between">
