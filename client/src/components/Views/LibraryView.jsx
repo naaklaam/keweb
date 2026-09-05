@@ -46,8 +46,8 @@ export default function LibraryView({ songs, onPlaySong, onAddToQueue, currentSo
 
   return (
     <div className="flex flex-col h-full overflow-hidden p-4 md:p-6 space-y-4">
-      {/* Search Bar & Filter Options */}
-      <div className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+      {/* Search Bar & Filter Options (Unboxed & Frameless) */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-2 border-b border-white/10">
         {/* Search Input */}
         <div className="relative w-full sm:w-80">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#FFC107]" />
@@ -56,14 +56,14 @@ export default function LibraryView({ songs, onPlaySong, onAddToQueue, currentSo
             placeholder="Cari lagu, artist, atau album..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-900/90 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FFC107]/60 transition-colors"
+            className="w-full bg-black/60 border border-white/15 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FFC107]/60 transition-colors"
           />
         </div>
 
-        {/* Sort Pill Buttons */}
-        <div className="flex items-center space-x-2 text-xs overflow-x-auto w-full sm:w-auto">
+        {/* Sort Options (Frameless with Gold Hover) */}
+        <div className="flex items-center space-x-1 sm:space-x-2 text-xs overflow-x-auto w-full sm:w-auto py-1">
           <span className="text-slate-400 font-semibold mr-1 flex items-center space-x-1">
-            <ArrowUpDown size={13} />
+            <ArrowUpDown size={12} className="text-[#FFC107]" />
             <span>Urutkan:</span>
           </span>
           {[
@@ -72,19 +72,27 @@ export default function LibraryView({ songs, onPlaySong, onAddToQueue, currentSo
             { id: 'album', label: 'Album' },
             { id: 'duration', label: 'Durasi' },
             { id: 'bits_per_sample', label: 'Hi-Res' }
-          ].map(field => (
-            <button
-              key={field.id}
-              onClick={() => toggleSort(field.id)}
-              className={`px-3 py-1.5 rounded-xl transition-all ${
-                sortField === field.id
-                  ? 'bg-black text-[#FFC107] border-2 border-[#FFC107] shadow-md shadow-[#FFC107]/20 font-bold'
-                  : 'bg-black/40 text-slate-400 border border-white/20 hover:text-white'
-              }`}
-            >
-              {field.label} {sortField === field.id ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
-            </button>
-          ))}
+          ].map(field => {
+            const isActive = sortField === field.id;
+            return (
+              <button
+                key={field.id}
+                onClick={() => toggleSort(field.id)}
+                className={`px-2.5 py-1.5 rounded-lg transition-all text-xs flex items-center space-x-1 ${
+                  isActive
+                    ? 'text-[#FFC107] font-bold bg-white/5'
+                    : 'text-slate-400 hover:text-[#FFC107] hover:bg-white/5'
+                }`}
+              >
+                <span>{field.label}</span>
+                {isActive && (
+                  <span className="text-[#FFC107]">
+                    {sortOrder === 'asc' ? '↑' : '↓'}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

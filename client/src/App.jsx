@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TerminalHeader from './components/TerminalHeader';
+import SidebarNav from './components/SidebarNav';
 import VirtualKeypad from './components/VirtualKeypad';
 import PlaylistView from './components/Views/PlaylistView';
 import LibraryView from './components/Views/LibraryView';
@@ -9,6 +10,7 @@ import { extractCoverPalette } from './utils/colorExtractor';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('library'); // 'playlist', 'library', 'track', 'search'
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
   const [songs, setSongs] = useState([]);
   const [stats, setStats] = useState({});
   const [queue, setQueue] = useState([]);
@@ -36,10 +38,19 @@ export default function App() {
 
   const audioRef = useRef(null);
 
-  // Fetch library songs & stats on initial load
+  // Auto-scan music directory on page load/refresh & fetch songs + stats
   useEffect(() => {
-    fetchSongs();
-    fetchStats();
+    const initApp = async () => {
+      try {
+        await fetch('/api/scan', { method: 'POST' });
+      } catch (e) {
+        console.error('Auto rescan on load failed:', e);
+      } finally {
+        fetchSongs();
+        fetchStats();
+      }
+    };
+    initApp();
   }, []);
 
   const fetchSongs = async () => {
@@ -60,16 +71,6 @@ export default function App() {
       setStats(data);
     } catch (e) {
       console.error('Failed to fetch stats:', e);
-    }
-  };
-
-  const handleRescan = async () => {
-    try {
-      await fetch('/api/scan', { method: 'POST' });
-      await fetchSongs();
-      await fetchStats();
-    } catch (e) {
-      console.error('Rescan failed:', e);
     }
   };
 
@@ -310,69 +311,78 @@ export default function App() {
 
       {/* Top Navigation Header */}
       <TerminalHeader
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
         stats={stats}
-        songs={songs}
-        queue={queue}
-        onRescan={handleRescan}
+        onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
       />
 
-      {/* Main View Area */}
-      <main className="flex-1 overflow-hidden relative">
-        {activeTab === 'queue' && (
-          <PlaylistView
-            queue={queue}
-            currentQueueIndex={currentQueueIndex}
-            onPlayFromQueue={(idx) => { setCurrentQueueIndex(idx); setIsPlaying(true); }}
-            onRemoveFromQueue={(idx) => {
-              const newQ = queue.filter((_, i) => i !== idx);
-              setQueue(newQ);
-              if (currentQueueIndex >= newQ.length) setCurrentQueueIndex(Math.max(0, newQ.length - 1));
-            }}
-            onMoveInQueue={(idx, dir) => {
-              const newQ = [...queue];
-              const target = idx + dir;
-              if (target < 0 || target >= newQ.length) return;
-              const temp = newQ[idx];
-              newQ[idx] = newQ[target];
-              newQ[target] = temp;
-              setQueue(newQ);
-              if (currentQueueIndex === idx) setCurrentQueueIndex(target);
-            }}
-            onClearQueue={() => { setQueue([]); setCurrentQueueIndex(-1); setIsPlaying(false); }}
-          />
-        )}
+      {/* Main Content Area with Collapsible SidebarNav */}
+      <div className="flex-1 flex overflow-hidden relative">
+        <SidebarNav
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          songs={songs}
+          queue={queue}
+          stats={stats}
+        />
 
-        {activeTab === 'library' && (
-          <LibraryView
-            songs={songs}
-            onPlaySong={handlePlaySong}
-            onAddToQueue={handleAddToQueue}
-            currentSong={currentSong}
-          />
-        )}
+        {/* Active View Container */}
+        <main className="flex-1 overflow-hidden relative">
+          {activeTab === 'queue' && (
+            <PlaylistView
+              queue={queue}
+              currentQueueIndex={currentQueueIndex}
+              onPlayFromQueue={(idx) => { setCurrentQueueIndex(idx); setIsPlaying(true); }}
+              onRemoveFromQueue={(idx) => {
+                const newQ = queue.filter((_, i) => i !== idx);
+                setQueue(newQ);
+                if (currentQueueIndex >= newQ.length) setCurrentQueueIndex(Math.max(0, newQ.length - 1));
+              }}
+              onMoveInQueue={(idx, dir) => {
+                const newQ = [...queue];
+                const target = idx + dir;
+                if (target < 0 || target >= newQ.length) return;
+                const temp = newQ[idx];
+                newQ[idx] = newQ[target];
+                newQ[target] = temp;
+                setQueue(newQ);
+                if (currentQueueIndex === idx) setCurrentQueueIndex(target);
+              }}
+              onClearQueue={() => { setQueue([]); setCurrentQueueIndex(-1); setIsPlaying(false); }}
+            />
+          )}
 
-        {activeTab === 'track' && (
-          <TrackView
-            song={currentSong}
-            isPlaying={isPlaying}
-            audioRef={audioRef}
-            currentTime={currentTime}
-            duration={duration}
-            onSeek={(t) => { if (audioRef.current) audioRef.current.currentTime = t; }}
-          />
-        )}
+          {activeTab === 'library' && (
+            <LibraryView
+              songs={songs}
+              onPlaySong={handlePlaySong}
+              onAddToQueue={handleAddToQueue}
+              currentSong={currentSong}
+            />
+          )}
 
-        {activeTab === 'playlist' && (
-          <SearchView
-            songs={songs}
-            onPlaySong={handlePlaySong}
-            onAddToQueue={handleAddToQueue}
-            currentSong={currentSong}
-          />
-        )}
-      </main>
+          {activeTab === 'track' && (
+            <TrackView
+              song={currentSong}
+              isPlaying={isPlaying}
+              audioRef={audioRef}
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={(t) => { if (audioRef.current) audioRef.current.currentTime = t; }}
+            />
+          )}
+
+          {activeTab === 'playlist' && (
+            <SearchView
+              songs={songs}
+              onPlaySong={handlePlaySong}
+              onAddToQueue={handleAddToQueue}
+              currentSong={currentSong}
+            />
+          )}
+        </main>
+      </div>
 
       {/* Bottom Player Controls Bar with Seek Progress Slider */}
       <VirtualKeypad
