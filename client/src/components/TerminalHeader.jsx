@@ -45,13 +45,13 @@ export default function TerminalHeader({ stats = {}, onToggleSidebar }) {
       </div>
 
       {/* Right: Hi-Res Count Badge & Live Clock */}
-      <div className="flex items-center space-x-2 sm:space-x-3 text-xs text-slate-400 font-medium">
+      <div className="flex items-center space-x-3 sm:space-x-4 text-xs text-slate-400 font-medium">
         {stats.hiResCount > 0 && (
-          <span className="hidden md:inline-flex items-center space-x-1 text-purple-300 bg-purple-500/10 border border-purple-500/30 px-2.5 py-1 rounded-full text-[11px]">
+          <span className="hidden md:inline-flex items-center space-x-1 text-purple-300 text-[11px] font-bold">
             <span>{stats.hiResCount} Hi-Res</span>
           </span>
         )}
-        <div className="hidden md:flex items-center space-x-1.5 bg-black/60 border border-white/10 px-3 py-1 rounded-full text-slate-300">
+        <div className="hidden md:flex items-center space-x-1.5 text-slate-300">
           <Clock size={13} className="text-[#FFC107]" />
           <span className="font-mono text-xs tracking-wider">{time}</span>
         </div>

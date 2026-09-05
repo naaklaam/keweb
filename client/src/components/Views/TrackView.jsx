@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Disc, Music2, FileText, Zap, ShieldCheck, Layers, RefreshCw, Sliders } from 'lucide-react';
+import { Disc, Music2, FileText, Zap, ShieldCheck, Layers, RefreshCw } from 'lucide-react';
 import { parseLyrics, getActiveLyricIndex } from '../../utils/lrcParser';
 
 export default function TrackView({ song, isPlaying, audioRef, currentTime, duration, onSeek }) {
   const [activeSubTab, setActiveSubTab] = useState('lyrics'); // 'lyrics' or 'specs'
   const [syncedLyricsData, setSyncedLyricsData] = useState(null);
   const [detailLyrics, setDetailLyrics] = useState(null);
-  const [syncOffset, setSyncOffset] = useState(0); // Offset in seconds (-2.0s to +2.0s)
   const [isLoadingLrc, setIsLoadingLrc] = useState(false);
   const activeLineRef = useRef(null);
 
@@ -19,8 +18,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
 
   const isHiRes = song && (song.bits_per_sample > 16 || song.sample_rate > 44100);
 
-// Lyrics are no longer shipped in the /api/songs list (it is heavy); fetch the
-  // detail row which includes the lyrics column (still never the filepath).
+  // Lyrics detail fetch from server API
   useEffect(() => {
     setDetailLyrics(null);
     if (!song) return;
@@ -32,15 +30,10 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
     return () => { cancelled = true; };
   }, [song?.id]);
 
-  // Auto-fetch online synced LRC lyrics with 2-stage LRCLIB lookup (exact get -> search query fallback)
+  // Auto-fetch online synced LRC lyrics
   useEffect(() => {
     setSyncedLyricsData(null);
-
     if (!song) return;
-
-    // Restore persistent user sync offset calibration for this song
-    const savedOffset = localStorage.getItem(`lrc_offset_${song.id}`);
-    setSyncOffset(savedOffset ? parseFloat(savedOffset) : 0);
 
     const baseLyrics = detailLyrics ?? (song ? song.lyrics : null);
     const hasLocalLrc = baseLyrics && /\[\d{2}:\d{2}/.test(baseLyrics);
@@ -49,7 +42,6 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
       return;
     }
 
-    // Attempt auto-fetch from LRCLIB API for exact millisecond synced lyrics
     if (song.artist && song.title) {
       setIsLoadingLrc(true);
       const cleanTitle = song.title.replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').trim();
@@ -62,7 +54,6 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
           if (data && data.syncedLyrics) {
             setSyncedLyricsData(data.syncedLyrics);
           } else {
-            // Stage 2: Fallback Search Query if exact /api/get had no synced lyrics
             const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(cleanArtist + ' ' + cleanTitle)}`;
             return fetch(searchUrl)
               .then(res => res.ok ? res.json() : null)
@@ -96,31 +87,10 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
     }
   }, [song?.id, detailLyrics]);
 
-  // Handle sync offset changes and persist to localStorage per song
-  const handleOffsetChange = (delta) => {
-    setSyncOffset(prev => {
-      const next = parseFloat((prev + delta).toFixed(1));
-      if (song && song.id) {
-        localStorage.setItem(`lrc_offset_${song.id}`, next.toString());
-      }
-      return next;
-    });
-  };
-
-  const handleResetOffset = () => {
-    setSyncOffset(0);
-    if (song && song.id) {
-      localStorage.removeItem(`lrc_offset_${song.id}`);
-    }
-  };
-
-  // Parse lyrics with timestamps & applied sync offset
   const activeLyricsText = syncedLyricsData || detailLyrics || (song ? song.lyrics : '');
-  const isHasLrcTimestamps = activeLyricsText && /\[\d{2}:\d{2}/.test(activeLyricsText);
-  const parsedLyrics = parseLyrics(activeLyricsText, duration, syncOffset);
+  const parsedLyrics = parseLyrics(activeLyricsText, duration, 0);
   const activeLyricIndex = getActiveLyricIndex(parsedLyrics, currentTime);
 
-  // Auto-scroll active lyric line into center view
   useEffect(() => {
     if (activeLineRef.current) {
       activeLineRef.current.scrollIntoView({
@@ -157,7 +127,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                   </div>
                 )}
                 {/* Audio Spec Badge Overlay */}
-                <div className="absolute top-3 right-3 glass-pill px-3 py-1 rounded-full text-xs font-bold text-white flex items-center space-x-1.5 shadow-lg">
+                <div className="absolute top-3 right-3 px-2.5 py-0.5 text-[11px] font-bold text-white flex items-center space-x-1">
                   <Zap size={12} className="text-amber-400 fill-amber-400" />
                   <span>{song.bits_per_sample || 16}-BIT FLAC</span>
                 </div>
@@ -167,18 +137,14 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
             {/* Right: Track Metadata Details */}
             <div className="md:col-span-7 flex flex-col space-y-5">
               <div>
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <span className="px-3 py-1 rounded-full text-xs bg-black text-[#FFC107] border border-[#FFC107]/40 font-semibold tracking-wide flex items-center space-x-1.5 backdrop-blur-sm shadow-sm">
-                    <span className="w-2 h-2 rounded-full bg-[#FFC107] animate-pulse" />
-                    <span>NOW PLAYING</span>
-                  </span>
-                  {isHiRes && (
-                    <span className="px-3 py-1 rounded-full text-xs bg-purple-500/15 text-purple-300 border border-purple-500/30 font-semibold flex items-center space-x-1 backdrop-blur-sm">
+                {isHiRes && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs text-purple-300 font-semibold flex items-center space-x-1">
                       <ShieldCheck size={13} />
                       <span>HI-RES LOSSLESS</span>
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight mb-1">
                   {song.title || song.filename}
@@ -213,28 +179,28 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                 </div>
               </div>
 
-              {/* Technical Specifications Highlights */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                <div className="glass-pill p-3 rounded-2xl flex flex-col justify-center">
+              {/* Technical Specifications Highlights - Frameless & Unboxed */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                <div className="flex flex-col">
                   <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Sample Rate</span>
                   <span className="text-purple-300 font-bold text-sm">
                     {song.sample_rate ? `${(song.sample_rate / 1000).toFixed(1)} kHz` : '44.1 kHz'}
                   </span>
                 </div>
 
-                <div className="glass-pill p-3 rounded-2xl flex flex-col justify-center">
+                <div className="flex flex-col">
                   <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Bit Depth</span>
                   <span className="text-[#FFC107] font-bold text-sm">{song.bits_per_sample || 16}-bit</span>
                 </div>
 
-                <div className="glass-pill p-3 rounded-2xl flex flex-col justify-center">
+                <div className="flex flex-col">
                   <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Bitrate</span>
                   <span className="text-emerald-300 font-bold text-sm">
                     {song.bitrate ? `${Math.round(song.bitrate / 1000)} kbps` : 'VBR'}
                   </span>
                 </div>
 
-                <div className="glass-pill p-3 rounded-2xl flex flex-col justify-center">
+                <div className="flex flex-col">
                   <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Duration</span>
                   <span className="text-white font-bold text-sm">{formatTime(song.duration)}</span>
                 </div>
@@ -242,99 +208,35 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
             </div>
           </div>
 
-          {/* Sub-Tab Navigation: Lyrics vs Detailed Spec Matrix */}
+          {/* Sub-Tab Navigation: Lyrics vs Detailed Spec Matrix (Frameless & Unboxed) */}
           <div className="flex flex-col space-y-6 pt-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 gap-3">
-              <div className="flex items-center space-x-2 bg-black/60 p-1.5 rounded-2xl border border-white/10 w-fit">
-                <button
-                  onClick={() => setActiveSubTab('lyrics')}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs transition-all ${
-                    activeSubTab === 'lyrics'
-                      ? 'bg-black text-[#FFC107] border-2 border-[#FFC107] shadow-md shadow-[#FFC107]/20 font-bold'
-                      : 'bg-black/40 text-slate-400 border border-white/20 hover:text-white'
-                  }`}
-                >
-                  <FileText size={15} className={activeSubTab === 'lyrics' ? 'text-[#FFC107]' : 'text-slate-400'} />
-                  <span>Lirik Lagu ({parsedLyrics.length})</span>
-                </button>
+            <div className="flex items-center space-x-6 border-b border-white/10 pb-3">
+              <button
+                onClick={() => setActiveSubTab('lyrics')}
+                className={`flex items-center space-x-2 text-xs font-bold transition-colors ${
+                  activeSubTab === 'lyrics'
+                    ? 'text-[#FFC107]'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <FileText size={15} />
+                <span>Lirik Lagu ({parsedLyrics.length})</span>
+              </button>
 
-                <button
-                  onClick={() => setActiveSubTab('specs')}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs transition-all ${
-                    activeSubTab === 'specs'
-                      ? 'bg-black text-[#FFC107] border-2 border-[#FFC107] shadow-md shadow-[#FFC107]/20 font-bold'
-                      : 'bg-black/40 text-slate-400 border border-white/20 hover:text-white'
-                  }`}
-                >
-                  <Layers size={15} className={activeSubTab === 'specs' ? 'text-[#FFC107]' : 'text-slate-400'} />
-                  <span>Informasi Metadata</span>
-                </button>
-              </div>
-
-              {/* Sync Calibration Delay Controls & Timestamp Status Badge */}
-              {activeSubTab === 'lyrics' && parsedLyrics.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${
-                    isHasLrcTimestamps
-                      ? 'bg-[#FFC107]/10 text-[#FFC107] border-[#FFC107]/30'
-                      : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
-                  }`}>
-                    {isHasLrcTimestamps ? 'SYNCED LRC' : 'PLAIN ESTIMATED'}
-                  </span>
-
-                  <div className="flex items-center space-x-1 bg-black/60 p-1 rounded-xl border border-white/10">
-                    <span className="text-slate-400 font-semibold px-1 flex items-center space-x-1 text-[11px]">
-                      <Sliders size={12} />
-                      <span>Sync:</span>
-                    </span>
-                    <button
-                      onClick={() => handleOffsetChange(-0.5)}
-                      className="px-1.5 py-0.5 rounded-lg bg-black/60 border border-white/20 text-slate-300 hover:text-[#FFC107] hover:border-[#FFC107]/40 text-[11px]"
-                      title="Percepat Lirik 0.5s"
-                    >
-                      -0.5s
-                    </button>
-                    <button
-                      onClick={() => handleOffsetChange(-0.1)}
-                      className="px-1.5 py-0.5 rounded-lg bg-black/60 border border-white/20 text-slate-300 hover:text-[#FFC107] hover:border-[#FFC107]/40 text-[11px]"
-                      title="Percepat Lirik 0.1s"
-                    >
-                      -0.1s
-                    </button>
-                    <span className={`px-2 py-0.5 rounded-lg text-[11px] font-bold ${
-                      syncOffset !== 0 ? 'bg-black text-[#FFC107] border border-[#FFC107]/40' : 'text-slate-400'
-                    }`}>
-                      {syncOffset > 0 ? `+${syncOffset}s` : `${syncOffset}s`}
-                    </span>
-                    <button
-                      onClick={() => handleOffsetChange(0.1)}
-                      className="px-1.5 py-0.5 rounded-lg bg-black/60 border border-white/20 text-slate-300 hover:text-[#FFC107] hover:border-[#FFC107]/40 text-[11px]"
-                      title="Perlambat Lirik 0.1s"
-                    >
-                      +0.1s
-                    </button>
-                    <button
-                      onClick={() => handleOffsetChange(0.5)}
-                      className="px-1.5 py-0.5 rounded-lg bg-black/60 border border-white/20 text-slate-300 hover:text-[#FFC107] hover:border-[#FFC107]/40 text-[11px]"
-                      title="Perlambat Lirik 0.5s"
-                    >
-                      +0.5s
-                    </button>
-                    {syncOffset !== 0 && (
-                      <button
-                        onClick={handleResetOffset}
-                        className="p-1 rounded-lg bg-black/60 border border-white/20 text-rose-400 hover:text-white"
-                        title="Reset Offset"
-                      >
-                        <RefreshCw size={11} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
+              <button
+                onClick={() => setActiveSubTab('specs')}
+                className={`flex items-center space-x-2 text-xs font-bold transition-colors ${
+                  activeSubTab === 'specs'
+                    ? 'text-[#FFC107]'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Layers size={15} />
+                <span>Informasi Metadata</span>
+              </button>
             </div>
 
-            {/* Tab 1: Subtle Lyrics Container with ~15% Font Highlighting & Tap-to-Seek */}
+            {/* Tab 1: Lyrics Content */}
             {activeSubTab === 'lyrics' && (
               <div className="min-h-[320px] max-h-[500px] overflow-y-auto px-4 py-4 flex flex-col space-y-4 text-center sm:text-left scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {isLoadingLrc ? (
@@ -370,32 +272,32 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
               </div>
             )}
 
-            {/* Tab 2: Detailed Specs Matrix */}
+            {/* Tab 2: Detailed Specs Matrix (Frameless & Unboxed) */}
             {activeSubTab === 'specs' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div className="glass-pill p-4 rounded-2xl flex items-center justify-between">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-xs py-2">
+                <div className="flex items-center justify-between py-2 border-b border-white/5">
                   <span className="text-slate-400 font-medium">Filename</span>
                   <span className="text-slate-200 font-mono text-[11px] truncate max-w-[240px]" title={song.filename}>
                     {song.filename}
                   </span>
                 </div>
-                <div className="glass-pill p-4 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center justify-between py-2 border-b border-white/5">
                   <span className="text-slate-400 font-medium">Container / Codec</span>
                   <span className="text-white font-bold">{song.container || 'FLAC'} (Free Lossless Audio Codec)</span>
                 </div>
-                <div className="glass-pill p-4 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center justify-between py-2 border-b border-white/5">
                   <span className="text-slate-400 font-medium">Channels</span>
                   <span className="text-slate-200 font-semibold">{song.channels === 2 ? 'Stereo (2 Ch)' : `${song.channels} Ch`}</span>
                 </div>
-                <div className="glass-pill p-4 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center justify-between py-2 border-b border-white/5">
                   <span className="text-slate-400 font-medium">Genre</span>
                   <span className="text-slate-200 font-semibold">{song.genre || 'Unspecified'}</span>
                 </div>
-                <div className="glass-pill p-4 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center justify-between py-2 border-b border-white/5">
                   <span className="text-slate-400 font-medium">Track Number</span>
                   <span className="text-slate-200 font-semibold">Track #{song.track_no || 1}</span>
                 </div>
-                <div className="glass-pill p-4 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center justify-between py-2 border-b border-white/5">
                   <span className="text-slate-400 font-medium">Audio Compression</span>
                   <span className="text-emerald-400 font-bold">100% Uncompressed Lossless</span>
                 </div>
