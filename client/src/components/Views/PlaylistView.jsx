@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Play, Trash2, ArrowUp, ArrowDown, ListMusic, Disc } from 'lucide-react';
 
-export default function PlaylistView({
+function PlaylistView({
   queue,
   currentQueueIndex,
   onPlayFromQueue,
@@ -65,7 +65,7 @@ export default function PlaylistView({
                   {/* Album Art Thumbnail */}
                   <div className="w-10 h-10 rounded-xl bg-slate-950/80 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-inner">
                     {song.has_cover ? (
-                      <img src={`/api/cover/${song.id}`} alt={song.album} className="w-full h-full object-cover" />
+                      <img loading="lazy" src={`/api/cover/${song.id}`} alt={song.album} className="w-full h-full object-cover" />
                     ) : (
                       <Disc size={20} className="text-slate-700" />
                     )}
@@ -127,3 +127,5 @@ export default function PlaylistView({
     </div>
   );
 }
+
+export default memo(PlaylistView);

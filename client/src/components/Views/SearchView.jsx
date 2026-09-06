@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import {
   Play, Plus, Disc, FolderPlus, ArrowLeft, Music2,
   ShieldCheck, ListMusic, Trash2, Search
 } from 'lucide-react';
 
-export default function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
+function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'album', 'artist', 'hires', 'custom'
   const [searchQuery, setSearchQuery] = useState('');
@@ -234,6 +234,7 @@ export default function SearchView({ songs, onPlayList, onAddToQueue, currentSon
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-slate-950 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xl relative group">
               {selectedPlaylist.coverSongId ? (
                 <img
+                  loading="lazy"
                   src={`/api/cover/${selectedPlaylist.coverSongId}`}
                   alt={selectedPlaylist.title}
                   className="w-full h-full object-cover"
@@ -310,7 +311,7 @@ export default function SearchView({ songs, onPlayList, onAddToQueue, currentSon
 
                       <div className="w-10 h-10 rounded-xl bg-slate-950 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
                         {song.has_cover ? (
-                          <img src={`/api/cover/${song.id}`} alt={song.album} className="w-full h-full object-cover" />
+                          <img loading="lazy" src={`/api/cover/${song.id}`} alt={song.album} className="w-full h-full object-cover" />
                         ) : (
                           <Disc size={20} className="text-slate-700" />
                         )}
@@ -468,6 +469,7 @@ export default function SearchView({ songs, onPlayList, onAddToQueue, currentSon
                 <div className="w-full aspect-square rounded-xl bg-slate-950/80 border border-white/10 overflow-hidden relative mb-3 flex items-center justify-center shadow-inner">
                   {item.coverSongId ? (
                     <img
+                      loading="lazy"
                       src={`/api/cover/${item.coverSongId}`}
                       alt={item.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
@@ -538,3 +540,5 @@ export default function SearchView({ songs, onPlayList, onAddToQueue, currentSon
     </div>
   );
 }
+
+export default memo(SearchView);

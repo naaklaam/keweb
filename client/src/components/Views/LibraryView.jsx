@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import { Play, Plus, Search, Disc, ArrowUpDown, Music2, ShieldCheck } from 'lucide-react';
 
-export default function LibraryView({ songs, onPlaySong, onAddToQueue, currentSong }) {
+function LibraryView({ songs, onPlaySong, onAddToQueue, currentSong }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('title');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -121,7 +121,7 @@ export default function LibraryView({ songs, onPlaySong, onAddToQueue, currentSo
                   {/* Album Art Thumbnail */}
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-slate-950/80 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center relative shadow-inner">
                     {song.has_cover ? (
-                      <img src={`/api/cover/${song.id}`} alt={song.album} className="w-full h-full object-cover" />
+                      <img loading="lazy" src={`/api/cover/${song.id}`} alt={song.album} className="w-full h-full object-cover" />
                     ) : (
                       <Disc size={22} className="text-slate-700" />
                     )}
@@ -174,3 +174,5 @@ export default function LibraryView({ songs, onPlaySong, onAddToQueue, currentSo
     </div>
   );
 }
+
+export default memo(LibraryView);

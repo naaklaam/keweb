@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import TerminalHeader from './components/TerminalHeader';
 import SidebarNav from './components/SidebarNav';
 import VirtualKeypad from './components/VirtualKeypad';
@@ -36,14 +36,6 @@ export default function App() {
   const [volume, setVolume] = useState(1);
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState('off'); // 'off' | 'all' | 'one'
-
-  const toggleRepeat = () => {
-    setRepeatMode(prev => {
-      if (prev === 'off') return 'all';
-      if (prev === 'all') return 'one';
-      return 'off';
-    });
-  };
 
   // Dynamic Theme Palette State
   const [themeStyle, setThemeStyle] = useState({
@@ -118,20 +110,17 @@ export default function App() {
     }
   }, [currentSong]);
 
-  // Play a specific list of songs (replaces the queue). Used by "play
-  // collection" (album / artist / playlist) and by single-song clicks from the
-  // library. Fixes the old bug where the queue was permanently aliased to the
-  // whole library, making playlist-order playback impossible.
-  const playFromList = (list, index = 0) => {
+  // Handlers dibungkus useCallback supaya prop ke view daftar stabil, sehingga
+  // React.memo bisa mencegah re-render saat currentTime berubah (utk menghindari
+  // daftar 769 lagu ikut rerender tiap ~250ms selama lagu berjalan).
+  const playFromList = useCallback((list, index = 0) => {
     if (!list || list.length === 0) return;
     setQueue(list);
     setCurrentQueueIndex(Math.max(0, Math.min(index, list.length - 1)));
     setIsPlaying(true);
-  };
+  }, []);
 
-  // Play a song from the Library screen: keeps the whole library as queue
-  // context so Previous/Next walk the library order.
-  const handlePlaySong = (song) => {
+  const handlePlaySong = useCallback((song) => {
     if (!song) return;
     const idx = songs.findIndex(s => s.id === song.id);
     if (idx >= 0) {
@@ -139,15 +128,13 @@ export default function App() {
     } else {
       playFromList([song], 0);
     }
-  };
+  }, [songs, playFromList]);
 
-  // Add song to queue without immediately switching
-  const handleAddToQueue = (song) => {
+  const handleAddToQueue = useCallback((song) => {
     setQueue(prev => [...prev, song]);
-  };
+  }, []);
 
-  // Handle Play/Pause toggle
-  const togglePlay = () => {
+  const handleTogglePlay = useCallback(() => {
     if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
@@ -155,10 +142,9 @@ export default function App() {
     } else {
       audioRef.current.play().then(() => setIsPlaying(true)).catch(e => console.error(e));
     }
-  };
+  }, [isPlaying]);
 
-  // Play previous track
-  const playPrev = () => {
+  const playPrev = useCallback(() => {
     if (queue.length === 0) return;
     if (currentQueueIndex > 0) {
       setCurrentQueueIndex(prev => prev - 1);
@@ -166,13 +152,10 @@ export default function App() {
       setCurrentQueueIndex(queue.length - 1);
     }
     setIsPlaying(true);
-  };
+  }, [queue.length, currentQueueIndex]);
 
-  // Play next track (isManual true when user clicks Next button)
-  const playNext = (isManual = false) => {
+  const playNext = useCallback((isManual = false) => {
     if (queue.length === 0) return;
-
-    // Repeat 1 track logic on natural end of song
     if (!isManual && repeatMode === 'one') {
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
@@ -180,7 +163,6 @@ export default function App() {
       }
       return;
     }
-
     if (isShuffle) {
       const randIdx = Math.floor(Math.random() * queue.length);
       setCurrentQueueIndex(randIdx);
@@ -191,15 +173,48 @@ export default function App() {
     } else {
       setIsPlaying(false);
     }
-  };
+  }, [queue.length, currentQueueIndex, isShuffle, repeatMode]);
 
-  // Seek forward / backward in seconds
-  const seek = (seconds) => {
+  const seek = useCallback((seconds) => {
     if (!audioRef.current) return;
     const newTime = Math.max(0, Math.min(audioRef.current.currentTime + seconds, duration));
     audioRef.current.currentTime = newTime;
     setCurrentTime(newTime);
-  };
+  }, [duration]);
+
+  const onSeekTo = useCallback((t) => {
+    if (audioRef.current) audioRef.current.currentTime = t;
+  }, []);
+
+  const handlePlayNextForKeypad = useCallback(() => {
+    playNext(true);
+  }, [playNext]);
+
+  const toggleShuffle = useCallback(() => setIsShuffle(prev => !prev), []);
+
+  const toggleRepeat = useCallback(() => {
+    setRepeatMode(prev => prev === 'off' ? 'all' : prev === 'all' ? 'one' : 'off');
+  }, []);
+
+  const queueCallbacks = useMemo(() => ({
+    onPlayFromQueue: (idx) => { setCurrentQueueIndex(idx); setIsPlaying(true); },
+    onRemoveFromQueue: (idx) => {
+      const newQ = queue.filter((_, i) => i !== idx);
+      setQueue(newQ);
+      if (currentQueueIndex >= newQ.length) setCurrentQueueIndex(Math.max(0, newQ.length - 1));
+    },
+    onMoveInQueue: (idx, dir) => {
+      const newQ = [...queue];
+      const target = idx + dir;
+      if (target < 0 || target >= newQ.length) return;
+      const temp = newQ[idx];
+      newQ[idx] = newQ[target];
+      newQ[target] = temp;
+      setQueue(newQ);
+      if (currentQueueIndex === idx) setCurrentQueueIndex(target);
+    },
+    onClearQueue: () => { setQueue([]); setCurrentQueueIndex(-1); setIsPlaying(false); },
+  }), [queue, currentQueueIndex]);
 
   // MediaSession integration & iOS Background Audio Keepalive
   useEffect(() => {
@@ -258,7 +273,7 @@ export default function App() {
           break;
         case ' ':
           e.preventDefault();
-          togglePlay();
+          handleTogglePlay();
           break;
         case 'h':
         case 'ArrowLeft':
@@ -402,58 +417,58 @@ export default function App() {
         />
 
         {/* Active View Container */}
-        <main
-          key={activeTab}
-          onAnimationEnd={() => setAnimDir(null)}
-          className={`flex-1 overflow-hidden relative ${
-            animDir ? (animDir === 'next' ? 'view-enter-next' : 'view-enter-prev') : ''
-          }`}
-        >
-          {activeTab === 'queue' && (
+        {/* Semua view tetap ter-mount dan hanya disembunyikan (hidden) supaya
+            state/scroll tiap view tidak hilang saat pindah tab. */}
+        <main className="flex-1 overflow-hidden relative">
+          <div
+            onAnimationEnd={() => setAnimDir(null)}
+            className={`absolute inset-0 flex flex-col ${
+              activeTab === 'queue' ? (animDir ? (animDir === 'next' ? 'view-enter-next' : 'view-enter-prev') : '') : 'hidden'
+            }`}
+          >
             <PlaylistView
               queue={queue}
               currentQueueIndex={currentQueueIndex}
-              onPlayFromQueue={(idx) => { setCurrentQueueIndex(idx); setIsPlaying(true); }}
-              onRemoveFromQueue={(idx) => {
-                const newQ = queue.filter((_, i) => i !== idx);
-                setQueue(newQ);
-                if (currentQueueIndex >= newQ.length) setCurrentQueueIndex(Math.max(0, newQ.length - 1));
-              }}
-              onMoveInQueue={(idx, dir) => {
-                const newQ = [...queue];
-                const target = idx + dir;
-                if (target < 0 || target >= newQ.length) return;
-                const temp = newQ[idx];
-                newQ[idx] = newQ[target];
-                newQ[target] = temp;
-                setQueue(newQ);
-                if (currentQueueIndex === idx) setCurrentQueueIndex(target);
-              }}
-              onClearQueue={() => { setQueue([]); setCurrentQueueIndex(-1); setIsPlaying(false); }}
+              {...queueCallbacks}
             />
-          )}
+          </div>
 
-          {activeTab === 'library' && (
+          <div
+            onAnimationEnd={() => setAnimDir(null)}
+            className={`absolute inset-0 flex flex-col ${
+              activeTab === 'library' ? (animDir ? (animDir === 'next' ? 'view-enter-next' : 'view-enter-prev') : '') : 'hidden'
+            }`}
+          >
             <LibraryView
               songs={songs}
               onPlaySong={handlePlaySong}
               onAddToQueue={handleAddToQueue}
               currentSong={currentSong}
             />
-          )}
+          </div>
 
-          {activeTab === 'track' && (
+          <div
+            onAnimationEnd={() => setAnimDir(null)}
+            className={`absolute inset-0 flex flex-col overflow-hidden ${
+              activeTab === 'track' ? (animDir ? (animDir === 'next' ? 'view-enter-next' : 'view-enter-prev') : '') : 'hidden'
+            }`}
+          >
             <TrackView
               song={currentSong}
               isPlaying={isPlaying}
               audioRef={audioRef}
               currentTime={currentTime}
               duration={duration}
-              onSeek={(t) => { if (audioRef.current) audioRef.current.currentTime = t; }}
+              onSeek={onSeekTo}
             />
-          )}
+          </div>
 
-          {activeTab === 'playlist' && (
+          <div
+            onAnimationEnd={() => setAnimDir(null)}
+            className={`absolute inset-0 flex flex-col ${
+              activeTab === 'playlist' ? (animDir ? (animDir === 'next' ? 'view-enter-next' : 'view-enter-prev') : '') : 'hidden'
+            }`}
+          >
             <SearchView
               songs={songs}
               onPlaySong={handlePlaySong}
@@ -461,7 +476,7 @@ export default function App() {
               onAddToQueue={handleAddToQueue}
               currentSong={currentSong}
             />
-          )}
+          </div>
         </main>
       </div>
 
@@ -470,15 +485,15 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isPlaying={isPlaying}
-        togglePlay={togglePlay}
+        togglePlay={handleTogglePlay}
         playPrev={playPrev}
-        playNext={() => playNext(true)}
+        playNext={handlePlayNextForKeypad}
         seek={seek}
         currentTime={currentTime}
         duration={duration}
-        onSeekTo={(t) => { if (audioRef.current) audioRef.current.currentTime = t; }}
+        onSeekTo={onSeekTo}
         isShuffle={isShuffle}
-        toggleShuffle={() => setIsShuffle(prev => !prev)}
+        toggleShuffle={toggleShuffle}
         repeatMode={repeatMode}
         toggleRepeat={toggleRepeat}
       />
