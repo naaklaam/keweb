@@ -370,7 +370,7 @@ export default function App() {
       ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="flex flex-col h-screen text-slate-100 font-sans overflow-hidden transition-all duration-1000 [touch-action:pan-y]"
+      className="flex flex-col h-dvh text-slate-100 font-sans overflow-hidden transition-all duration-1000 [touch-action:pan-y]"
       style={{ background: themeStyle.bgGradient }}
     >
       {/* HTML5 Audio Element with iOS background playback optimizations */}
