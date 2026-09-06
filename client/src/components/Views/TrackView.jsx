@@ -8,6 +8,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
   const [detailLyrics, setDetailLyrics] = useState(null);
   const [isLoadingLrc, setIsLoadingLrc] = useState(false);
   const activeLineRef = useRef(null);
+  const lyricsBoxRef = useRef(null);
 
   const formatTime = (secs) => {
     if (!secs || isNaN(secs)) return '0:00';
@@ -91,14 +92,19 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
   const parsedLyrics = parseLyrics(activeLyricsText, duration, 0);
   const activeLyricIndex = getActiveLyricIndex(parsedLyrics, currentTime);
 
+  // Auto-scroll lirik HANYA di dalam kotak lirik (bukan ikut scroll halaman).
+  // scrollIntoView sebelumnya membuat seluruh halaman (termasuk cover di atas)
+  // ikut tergeser sehingga layar kebawa ke bawah.
   useEffect(() => {
-    if (activeLineRef.current) {
-      activeLineRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      });
-    }
-  }, [activeLyricIndex]);
+    if (activeSubTab !== 'lyrics') return;
+    const box = lyricsBoxRef.current;
+    const line = activeLineRef.current;
+    if (!box || !line) return;
+    const boxTop = box.getBoundingClientRect().top;
+    const lineTop = line.getBoundingClientRect().top - boxTop + box.scrollTop;
+    const target = lineTop - box.clientHeight / 2 + line.offsetHeight / 2;
+    box.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+  }, [activeLyricIndex, activeSubTab]);
 
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
@@ -238,7 +244,10 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
 
             {/* Tab 1: Lyrics Content */}
             {activeSubTab === 'lyrics' && (
-              <div className="min-h-[320px] max-h-[500px] overflow-y-auto px-4 py-4 flex flex-col space-y-4 text-center sm:text-left scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div
+                ref={lyricsBoxRef}
+                className="min-h-[320px] max-h-[500px] overflow-y-auto px-4 py-4 flex flex-col space-y-4 text-center sm:text-left scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              >
                 {isLoadingLrc ? (
                   <div className="flex flex-col items-center justify-center py-20 text-slate-400 space-y-3">
                     <RefreshCw size={32} className="animate-spin text-white" />
