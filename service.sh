@@ -84,16 +84,19 @@ status_service() {
   fi
 
   echo "------------------------------------------------------------"
-  echo " ACTIVE DEVICES (dari logs/access.log, 24 jam terakhir)"
+  echo " TELEMETRI PERANGKAT & PENGGUNA (logs/access.log, 24 Jam)"
   node -e '
     const fs = require("fs");
     const path = require("path");
     const logPath = path.join(process.env.HOME || ".", "playering-flac", "logs", "access.log");
     let txt = "";
     try { txt = fs.readFileSync(logPath, "utf8"); }
-    catch (e) { console.log(" (belum ada log)"); process.exit(0); }
+    catch (e) { console.log(" (belum ada log akses)"); process.exit(0); }
 
-    const cutoff = Date.now() - 24 * 3600 * 1000;
+    const now = Date.now();
+    const cutoff24h = now - 24 * 3600 * 1000;
+    const cutoff15m = now - 15 * 60 * 1000;
+
     function parseUA(ua) {
       let os = "Desktop", browser = "?";
       if (/Android/.test(ua)) os = "Android";
@@ -101,45 +104,89 @@ status_service() {
       else if (/Windows/.test(ua)) os = "Windows";
       else if (/Linux/.test(ua)) os = "Linux";
       else if (/Mac OS X/.test(ua)) os = "macOS";
+
       if (/CriOS/.test(ua)) browser = "Chrome(iOS)";
       else if (/Edg/.test(ua)) browser = "Edge";
       else if (/Chrome/.test(ua)) browser = "Chrome";
       else if (/Firefox/.test(ua)) browser = "Firefox";
       else if (/Brave/.test(ua)) browser = "Brave";
       else if (/Safari/.test(ua)) browser = "Safari";
-      return { os, browser, mobile: /Mobile|iPhone|iPad/.test(ua) };
+
+      return { os, browser, mobile: /Mobile|iPhone|iPad|Android/.test(ua) };
     }
+
+    function timeAgo(msAgo) {
+      const sec = Math.floor(msAgo / 1000);
+      if (sec < 60) return "Baru saja";
+      const min = Math.floor(sec / 60);
+      if (min < 60) return `${min}m lalu`;
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return `${hr}j ${min % 60}m lalu`;
+      return `${Math.floor(hr / 24)}h lalu`;
+    }
+
     const devs = {};
     for (const line of txt.split("\n")) {
       if (!line.includes("/api/stream")) continue;
       const time = /^\[([^\]]+)\]/.exec(line);
       if (!time) continue;
       const t = new Date(time[1]).getTime();
-      if (isNaN(t) || t < cutoff) continue;
-      const ip = /IP: ([^ ]+)/.exec(line);
-      const ua = /UA: "([^"]*)"/.exec(line);
-      if (!ip || !ua) continue;
-      const p = parseUA(ua[1]);
-      const key = ip[1] + "|" + p.os + "|" + p.browser + "|" + (p.mobile ? "m" : "d");
-      if (!devs[key]) devs[key] = { ip: ip[1], os: p.os, browser: p.browser, mobile: p.mobile, streams: 0, last: time[1] };
+      if (isNaN(t) || t < cutoff24h) continue;
+
+      const ipMatch = /IP: ([^ ]+)/.exec(line);
+      const uaMatch = /UA: "([^"]*)"/.exec(line);
+      if (!ipMatch || !uaMatch) continue;
+
+      const ip = ipMatch[1];
+      const p = parseUA(uaMatch[1]);
+      const key = `${ip}|${p.os}|${p.browser}|${p.mobile ? "m" : "d"}`;
+
+      if (!devs[key]) {
+        devs[key] = {
+          ip,
+          os: p.os,
+          browser: p.browser,
+          mobile: p.mobile,
+          streams: 0,
+          lastTs: t
+        };
+      }
       devs[key].streams++;
-      if (time[1] > devs[key].last) devs[key].last = time[1];
+      if (t > devs[key].lastTs) devs[key].lastTs = t;
     }
-    const arr = Object.values(devs).sort((a, b) => b.streams - a.streams);
-    const mobile = arr.filter(d => d.mobile).length;
-    console.log(` Device unik (24jam): ${arr.length}  (mobile ${mobile} / desktop ${arr.length - mobile})`);
+
+    const arr = Object.values(devs).sort((a, b) => b.lastTs - a.lastTs);
+    const recent15m = arr.filter(d => d.lastTs >= cutoff15m).length;
+    const mobileCount = arr.filter(d => d.mobile).length;
+
+    console.log(` Perangkat Unik (24h) : ${arr.length}  (Mobile: ${mobileCount} | Desktop: ${arr.length - mobileCount})`);
+    console.log(` Aktif 15m Terakhir  : ${recent15m} Perangkat\n`);
+
+    if (arr.length === 0) {
+      console.log(" (tidak ada aktivitas stream dalam 24 jam terakhir)");
+      process.exit(0);
+    }
+
     const byOS = {};
     for (const d of arr) byOS[d.os] = (byOS[d.os] || 0) + d.streams;
     const totalStreams = arr.reduce((s, d) => s + d.streams, 0);
-    console.log(" OS (proporsi stream):");
-    for (const [k, v] of Object.entries(byOS).sort((a, b) => b[1] - a[1]))
-      console.log(`   ${k}: ${v} (${(v / totalStreams * 100).toFixed(1)}%)`);
-    if (arr.length === 0) { console.log(" (tidak ada stream dalam 24 jam terakhir)"); process.exit(0); }
-    console.log(" Per device (IP | OS | browser | stream | last):");
-    for (const d of arr.slice(0, 8))
-      console.log(`   ${d.ip} | ${d.os}${d.mobile ? "(mob)" : ""} | ${d.browser} | ${d.streams} | ${d.last}`);
-  '
 
+    console.log(" Distribusi OS (Proporsi Stream):");
+    for (const [k, v] of Object.entries(byOS).sort((a, b) => b[1] - a[1])) {
+      const pct = (v / totalStreams * 100).toFixed(1);
+      console.log(`   - ${k.padEnd(9)}: ${v.toString().padStart(4)} stream (${pct}%)`);
+    }
+
+    console.log("\n Detail Perangkat (Diurutkan dari yang Terbaru Aktif):");
+    console.log(" " + "IP ADDRESS".padEnd(42) + "OS / TIPE".padEnd(18) + "BROWSER".padEnd(12) + "STREAM".padEnd(9) + "TERAKHIR AKTIF");
+    console.log(" " + "-".repeat(92));
+
+    for (const d of arr.slice(0, 10)) {
+      const osType = `${d.os} ${d.mobile ? "[Mob]" : "[Desk]"}`;
+      const ago = timeAgo(now - d.lastTs);
+      console.log(` ${d.ip.padEnd(42)}${osType.padEnd(18)}${d.browser.padEnd(12)}${d.streams.toString().padEnd(9)}${ago}`);
+    }
+  '
   echo "============================================================"
 }
 
