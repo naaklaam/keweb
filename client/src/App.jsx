@@ -6,6 +6,7 @@ import PlaylistView from './components/Views/PlaylistView';
 import LibraryView from './components/Views/LibraryView';
 import TrackView from './components/Views/TrackView';
 import SearchView from './components/Views/SearchView';
+import AddToPlaylistModal from './components/Modals/AddToPlaylistModal';
 import { extractCoverPalette } from './utils/colorExtractor';
 
 // Order of bottom/sidebar sections; swipe left/right cycles through these.
@@ -47,6 +48,11 @@ export default function App() {
   const containerRef = useRef(null);
   const swipeRef = useRef({ x: 0, y: 0, ok: false, active: false });
   const [animDir, setAnimDir] = useState(null); // 'next' | 'prev' | null (utk animasi slide)
+  const [playlistModalSong, setPlaylistModalSong] = useState(null);
+
+  const handleOpenAddToPlaylist = useCallback((song) => {
+    setPlaylistModalSong(song);
+  }, []);
 
   // Auto-scan music directory on page load/refresh & fetch songs + stats
   useEffect(() => {
@@ -443,6 +449,7 @@ export default function App() {
               songs={songs}
               onPlaySong={handlePlaySong}
               onAddToQueue={handleAddToQueue}
+              onAddToPlaylist={handleOpenAddToPlaylist}
               currentSong={currentSong}
             />
           </div>
@@ -460,6 +467,7 @@ export default function App() {
               currentTime={currentTime}
               duration={duration}
               onSeek={onSeekTo}
+              onAddToPlaylist={handleOpenAddToPlaylist}
             />
           </div>
 
@@ -496,6 +504,13 @@ export default function App() {
         toggleShuffle={toggleShuffle}
         repeatMode={repeatMode}
         toggleRepeat={toggleRepeat}
+      />
+
+      {/* Modal Dialog: Add Song to Custom Playlist */}
+      <AddToPlaylistModal
+        song={playlistModalSong}
+        isOpen={Boolean(playlistModalSong)}
+        onClose={() => setPlaylistModalSong(null)}
       />
     </div>
   );

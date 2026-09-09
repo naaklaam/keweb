@@ -190,7 +190,31 @@ app.get('/api/playlists', (req, res) => {
       GROUP BY p.id
       ORDER BY p.name COLLATE NOCASE
     `).all();
-    res.json(rows);
+
+    // Attach up to 4 distinct cover song IDs per playlist (ordered by position ASC)
+    // Once 4 distinct covers are reached, they remain fixed unless songs are removed.
+    const coverRows = db.prepare(`
+      SELECT ps.playlist_id, ps.song_id
+      FROM playlist_songs ps
+      JOIN songs s ON s.id = ps.song_id
+      WHERE s.has_cover = 1
+      ORDER BY ps.playlist_id, ps.position ASC
+    `).all();
+
+    const coverMap = {};
+    for (const r of coverRows) {
+      if (!coverMap[r.playlist_id]) coverMap[r.playlist_id] = [];
+      if (coverMap[r.playlist_id].length < 4 && !coverMap[r.playlist_id].includes(r.song_id)) {
+        coverMap[r.playlist_id].push(r.song_id);
+      }
+    }
+
+    const result = rows.map(r => ({
+      ...r,
+      cover_song_ids: coverMap[r.id] || []
+    }));
+
+    res.json(result);
   } catch (err) {
     logger.error('API', 'Error listing playlists', err);
     res.status(500).json({ error: err.message });
@@ -204,7 +228,7 @@ app.post('/api/playlists', (req, res) => {
   try {
     const info = db.prepare('INSERT INTO playlists (name) VALUES (?)').run(name);
     const row = db.prepare('SELECT id, name, created_at FROM playlists WHERE id = ?').get(info.lastInsertRowid);
-    res.status(201).json(row);
+    res.status(201).json({ ...row, song_count: 0, cover_song_ids: [] });
   } catch (err) {
     logger.error('API', 'Error creating playlist', err);
     res.status(500).json({ error: err.message });
@@ -222,9 +246,60 @@ app.get('/api/playlists/:id', (req, res) => {
       WHERE ps.playlist_id = ?
       ORDER BY ps.position ASC, s.id ASC
     `).all(pl.id);
-    res.json({ ...pl, songs });
+
+    const cover_song_ids = [];
+    for (const s of songs) {
+      if (s.has_cover && cover_song_ids.length < 4 && !cover_song_ids.includes(s.id)) {
+        cover_song_ids.push(s.id);
+      }
+    }
+
+    res.json({ ...pl, songs, cover_song_ids });
   } catch (err) {
     logger.error('API', 'Error fetching playlist', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/playlists/:id/songs  { songId } — append single song to playlist
+app.post('/api/playlists/:id/songs', (req, res) => {
+  const songId = Number(req.body && req.body.songId);
+  if (!Number.isInteger(songId)) return res.status(400).json({ error: 'Valid songId required' });
+
+  try {
+    const pl = db.prepare('SELECT id FROM playlists WHERE id = ?').get(req.params.id);
+    if (!pl) return res.status(404).json({ error: 'Playlist not found' });
+
+    const song = db.prepare('SELECT id FROM songs WHERE id = ?').get(songId);
+    if (!song) return res.status(404).json({ error: 'Song not found' });
+
+    // Check if already in playlist
+    const existing = db.prepare('SELECT 1 FROM playlist_songs WHERE playlist_id = ? AND song_id = ?').get(pl.id, songId);
+    if (existing) {
+      return res.json({ success: true, message: 'Song already in playlist', added: false });
+    }
+
+    const nextPos = db.prepare('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM playlist_songs WHERE playlist_id = ?').get(pl.id).pos;
+    db.prepare('INSERT INTO playlist_songs (playlist_id, song_id, position) VALUES (?, ?, ?)').run(pl.id, songId, nextPos);
+
+    res.status(201).json({ success: true, added: true, position: nextPos });
+  } catch (err) {
+    logger.error('API', 'Error adding song to playlist', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/playlists/:id/songs/:songId — remove single song from playlist
+app.delete('/api/playlists/:id/songs/:songId', (req, res) => {
+  const songId = Number(req.params.songId);
+  if (!Number.isInteger(songId)) return res.status(400).json({ error: 'Valid songId required' });
+
+  try {
+    const info = db.prepare('DELETE FROM playlist_songs WHERE playlist_id = ? AND song_id = ?').run(req.params.id, songId);
+    if (!info.changes) return res.status(404).json({ error: 'Song not in playlist' });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('API', 'Error removing song from playlist', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -232,7 +307,6 @@ app.get('/api/playlists/:id', (req, res) => {
 // PUT /api/playlists/:id/songs  { songIds: [..] } — replace membership in order
 app.put('/api/playlists/:id/songs', (req, res) => {
   const songIds = Array.isArray(req.body && req.body.songIds) ? req.body.songIds : [];
-  if (!songIds.length) return res.status(400).json({ error: 'songIds array required' });
   const ids = songIds.map(Number).filter(Number.isInteger);
   if (ids.length !== songIds.length) return res.status(400).json({ error: 'Invalid song id' });
 
@@ -240,14 +314,18 @@ app.put('/api/playlists/:id/songs', (req, res) => {
     const pl = db.prepare('SELECT id FROM playlists WHERE id = ?').get(req.params.id);
     if (!pl) return res.status(404).json({ error: 'Playlist not found' });
 
-    const placeholders = ids.map(() => '?').join(',');
-    const valid = db.prepare(`SELECT COUNT(*) AS c FROM songs WHERE id IN (${placeholders})`).get(...ids).c;
-    if (valid !== ids.length) return res.status(400).json({ error: 'One or more song ids do not exist' });
+    if (ids.length > 0) {
+      const placeholders = ids.map(() => '?').join(',');
+      const valid = db.prepare(`SELECT COUNT(*) AS c FROM songs WHERE id IN (${placeholders})`).get(...ids).c;
+      if (valid !== ids.length) return res.status(400).json({ error: 'One or more song ids do not exist' });
+    }
 
     const replace = db.transaction(() => {
       db.prepare('DELETE FROM playlist_songs WHERE playlist_id = ?').run(pl.id);
-      const ins = db.prepare('INSERT INTO playlist_songs (playlist_id, song_id, position) VALUES (?, ?, ?)');
-      ids.forEach((sid, i) => ins.run(pl.id, sid, i));
+      if (ids.length > 0) {
+        const ins = db.prepare('INSERT INTO playlist_songs (playlist_id, song_id, position) VALUES (?, ?, ?)');
+        ids.forEach((sid, i) => ins.run(pl.id, sid, i));
+      }
     });
     replace();
     res.json({ success: true, count: ids.length });

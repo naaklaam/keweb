@@ -1,7 +1,7 @@
 import React, { memo, useState } from 'react';
-import { Play, Plus, Search, Disc, ArrowUpDown, Music2, ShieldCheck } from 'lucide-react';
+import { Play, Plus, Search, Disc, ArrowUpDown, Music2, ShieldCheck, ListPlus } from 'lucide-react';
 
-function LibraryView({ songs, onPlaySong, onAddToQueue, currentSong }) {
+function LibraryView({ songs, onPlaySong, onAddToQueue, onAddToPlaylist, currentSong }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('title');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -153,10 +153,21 @@ function LibraryView({ songs, onPlaySong, onAddToQueue, currentSong }) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      onAddToPlaylist && onAddToPlaylist(song);
+                    }}
+                    title="Tambah ke Playlist Custom"
+                    className="p-2 rounded-xl glass-pill text-slate-400 hover:text-[#FFC107] opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <ListPlus size={14} />
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
                       onAddToQueue(song);
                     }}
                     title="Tambah ke Queue"
-                    className="p-2 rounded-xl glass-pill text-slate-400 hover:text-[#FFC107] opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="p-2 rounded-xl glass-pill text-slate-400 hover:text-[#FFC107] opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <Plus size={14} />
                   </button>

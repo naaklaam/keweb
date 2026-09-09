@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Disc, Music2, FileText, Zap, ShieldCheck, Layers, RefreshCw } from 'lucide-react';
+import { Disc, Music2, FileText, Zap, ShieldCheck, Layers, RefreshCw, Plus } from 'lucide-react';
 import { parseLyrics, getActiveLyricIndex } from '../../utils/lrcParser';
 
-export default function TrackView({ song, isPlaying, audioRef, currentTime, duration, onSeek }) {
+export default function TrackView({ song, isPlaying, audioRef, currentTime, duration, onSeek, onAddToPlaylist }) {
   const [activeSubTab, setActiveSubTab] = useState('lyrics'); // 'lyrics' or 'specs'
   const [syncedLyricsData, setSyncedLyricsData] = useState(null);
   const [detailLyrics, setDetailLyrics] = useState(null);
@@ -163,7 +163,17 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
               <div className="flex flex-col space-y-2 pt-1">
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="text-slate-200 font-medium">{formatTime(currentTime)}</span>
-                  <span className="text-slate-400 font-medium">{formatTime(duration)}</span>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => onAddToPlaylist && onAddToPlaylist(song)}
+                      title="Tambah ke Playlist Custom"
+                      className="p-1 px-2 rounded-xl text-slate-400 hover:text-[#FFC107] hover:bg-white/10 transition-all flex items-center space-x-1"
+                    >
+                      <Plus size={13} />
+                      <span className="text-[11px] font-sans font-semibold">Playlist</span>
+                    </button>
+                    <span className="text-slate-400 font-medium">{formatTime(duration)}</span>
+                  </div>
                 </div>
                 <div className="relative flex items-center group">
                   <input

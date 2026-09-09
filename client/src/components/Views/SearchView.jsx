@@ -1,19 +1,21 @@
 import React, { memo, useState, useEffect } from 'react';
 import {
   Play, Plus, Disc, FolderPlus, ArrowLeft, Music2,
-  ShieldCheck, ListMusic, Trash2, Search
+  ShieldCheck, ListMusic, Trash2, Search, X, Check
 } from 'lucide-react';
+import PlaylistCoverGrid from '../Common/PlaylistCoverGrid';
 
-function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
+function SearchView({ songs = [], onPlayList, onAddToQueue, currentSong }) {
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'album', 'artist', 'hires', 'custom'
   const [searchQuery, setSearchQuery] = useState('');
   const [serverPlaylists, setServerPlaylists] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [isSongPickerOpen, setIsSongPickerOpen] = useState(false);
+  const [songPickerQuery, setSongPickerQuery] = useState('');
 
-  // Playlists live on the server (playlists + playlist_songs tables), not in
-  // localStorage, so they are shared across devices and survive cache clears.
+  // Playlists live on the server (playlists + playlist_songs tables)
   const loadPlaylists = async () => {
     try {
       const res = await fetch('/api/playlists');
@@ -50,6 +52,7 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
         artist: null,
         title: detail.name,
         subtitle: `${detail.songs.length} Lagu`,
+        coverSongIds: detail.cover_song_ids || (detail.songs ? detail.songs.filter(s => s.has_cover).slice(0, 4).map(s => s.id) : []),
       });
     } else {
       setSelectedPlaylist(item);
@@ -66,14 +69,14 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
         type: 'album',
         title: albumName,
         artist: song.artist || 'Unknown Artist',
-        coverSongId: song.has_cover ? song.id : null,
+        coverSongIds: song.has_cover ? [song.id] : [],
         songs: [],
         isHiRes: false,
       };
     }
     albumMap[albumName].songs.push(song);
-    if (!albumMap[albumName].coverSongId && song.has_cover) {
-      albumMap[albumName].coverSongId = song.id;
+    if (albumMap[albumName].coverSongIds.length === 0 && song.has_cover) {
+      albumMap[albumName].coverSongIds = [song.id];
     }
     if (song.bits_per_sample > 16 || song.sample_rate > 44100) {
       albumMap[albumName].isHiRes = true;
@@ -91,14 +94,14 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
         type: 'artist',
         title: artistName,
         subtitle: `${artistName} Collection`,
-        coverSongId: song.has_cover ? song.id : null,
+        coverSongIds: song.has_cover ? [song.id] : [],
         songs: [],
         isHiRes: false,
       };
     }
     artistMap[artistName].songs.push(song);
-    if (!artistMap[artistName].coverSongId && song.has_cover) {
-      artistMap[artistName].coverSongId = song.id;
+    if (artistMap[artistName].coverSongIds.length === 0 && song.has_cover) {
+      artistMap[artistName].coverSongIds = [song.id];
     }
   });
   const artists = Object.values(artistMap);
@@ -112,7 +115,7 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
       type: 'curated',
       title: 'Hi-Res Lossless FLAC',
       subtitle: '24-bit / 96kHz Collection',
-      coverSongId: hiResSongs.find(s => s.has_cover)?.id || hiResSongs[0]?.id,
+      coverSongIds: hiResSongs.filter(s => s.has_cover).slice(0, 4).map(s => s.id),
       songs: hiResSongs,
       isHiRes: true,
     });
@@ -125,7 +128,7 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
     title: pl.name,
     subtitle: `${pl.song_count} Lagu`,
     song_count: pl.song_count,
-    coverSongId: null,
+    coverSongIds: pl.cover_song_ids || [],
     songs: [],
     isHiRes: false,
   }));
@@ -162,7 +165,12 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newPlaylistName.trim() }),
       });
-      if (res.ok) await loadPlaylists();
+      if (res.ok) {
+        await loadPlaylists();
+        const created = await res.json();
+        // Automatically open the new playlist
+        openPlaylist({ id: String(created.id), type: 'custom', title: created.name });
+      }
     } catch (err) {
       console.error('Failed to create playlist:', err);
     }
@@ -180,6 +188,60 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
     }
     if (selectedPlaylist && String(selectedPlaylist.id) === String(plId)) {
       setSelectedPlaylist(null);
+    }
+  };
+
+  const handleAddSongToSelectedPlaylist = async (song) => {
+    if (!selectedPlaylist || selectedPlaylist.type !== 'custom') return;
+    try {
+      const res = await fetch(`/api/playlists/${selectedPlaylist.id}/songs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ songId: song.id }),
+      });
+      if (res.ok) {
+        const detail = await fetchPlaylistDetail(selectedPlaylist.id);
+        if (detail) {
+          setSelectedPlaylist({
+            ...detail,
+            type: 'custom',
+            isHiRes: false,
+            artist: null,
+            title: detail.name,
+            subtitle: `${detail.songs.length} Lagu`,
+            coverSongIds: detail.cover_song_ids || (detail.songs ? detail.songs.filter(s => s.has_cover).slice(0, 4).map(s => s.id) : []),
+          });
+        }
+        await loadPlaylists();
+      }
+    } catch (err) {
+      console.error('Failed to add song to playlist:', err);
+    }
+  };
+
+  const handleRemoveSongFromSelectedPlaylist = async (songId) => {
+    if (!selectedPlaylist || selectedPlaylist.type !== 'custom') return;
+    try {
+      const res = await fetch(`/api/playlists/${selectedPlaylist.id}/songs/${songId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        const detail = await fetchPlaylistDetail(selectedPlaylist.id);
+        if (detail) {
+          setSelectedPlaylist({
+            ...detail,
+            type: 'custom',
+            isHiRes: false,
+            artist: null,
+            title: detail.name,
+            subtitle: `${detail.songs.length} Lagu`,
+            coverSongIds: detail.cover_song_ids || (detail.songs ? detail.songs.filter(s => s.has_cover).slice(0, 4).map(s => s.id) : []),
+          });
+        }
+        await loadPlaylists();
+      }
+    } catch (err) {
+      console.error('Failed to remove song from playlist:', err);
     }
   };
 
@@ -217,6 +279,8 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
   // Render Playlist Detail View if a playlist is selected
   if (selectedPlaylist) {
     const totalSecs = selectedPlaylist.songs.reduce((acc, s) => acc + (s.duration || 0), 0);
+    const currentCoverIds = selectedPlaylist.coverSongIds || (selectedPlaylist.songs ? selectedPlaylist.songs.filter(s => s.has_cover).slice(0, 4).map(s => s.id) : []);
+
     return (
       <div className="flex flex-col h-full overflow-hidden p-4 md:p-6 space-y-4 max-w-6xl mx-auto w-full">
         {/* Detail Header Bar */}
@@ -230,25 +294,22 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
               <ArrowLeft size={20} />
             </button>
 
-            {/* Cover image large */}
+            {/* 4-Grid or Single Cover Image Box */}
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-slate-950 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xl relative group">
-              {selectedPlaylist.coverSongId ? (
-                <img
-                  loading="lazy"
-                  src={`/api/cover/${selectedPlaylist.coverSongId}`}
-                  alt={selectedPlaylist.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <Disc size={44} className="text-slate-700" />
-              )}
+              <PlaylistCoverGrid coverSongIds={currentCoverIds} fallbackIconSize={44} />
             </div>
 
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center space-x-2">
-                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-black text-[#FFC107] border border-[#FFC107]/40">
-                  {selectedPlaylist.type}
-                </span>
+                {selectedPlaylist.type === 'custom' ? (
+                  <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-black text-[#FFC107] border border-[#FFC107]/40 tracking-wider">
+                    CUSTOM PLAYLIST
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-black text-[#FFC107] border border-[#FFC107]/40">
+                    {selectedPlaylist.type}
+                  </span>
+                )}
                 {selectedPlaylist.isHiRes && (
                   <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center space-x-1">
                     <ShieldCheck size={11} />
@@ -266,11 +327,22 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center space-x-3 w-full md:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+            {selectedPlaylist.type === 'custom' && (
+              <button
+                onClick={() => setIsSongPickerOpen(true)}
+                className="flex items-center space-x-1.5 px-4 py-3 rounded-2xl bg-black text-[#FFC107] border-2 border-[#FFC107] font-bold text-xs shadow-lg shadow-[#FFC107]/20 hover:scale-105 active:scale-95 transition-all"
+                title="Tambah Lagu ke Playlist Ini"
+              >
+                <Plus size={16} />
+                <span>+ Tambah Lagu</span>
+              </button>
+            )}
+
             <button
               onClick={() => playPlaylist(selectedPlaylist)}
               disabled={!selectedPlaylist.songs || selectedPlaylist.songs.length === 0}
-              className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-5 py-3 rounded-2xl bg-black text-[#FFC107] border-2 border-[#FFC107] font-bold text-xs shadow-lg shadow-[#FFC107]/25 hover:scale-105 active:scale-95 transition-all disabled:opacity-40"
+              className="flex items-center justify-center space-x-2 px-5 py-3 rounded-2xl bg-black text-[#FFC107] border-2 border-[#FFC107] font-bold text-xs shadow-lg shadow-[#FFC107]/25 hover:scale-105 active:scale-95 transition-all disabled:opacity-40"
             >
               <Play size={16} className="fill-[#FFC107] text-[#FFC107]" />
               <span>Putar Semua</span>
@@ -327,8 +399,8 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-3 ml-2">
-                      <span className="text-xs font-semibold text-slate-400 font-mono">
+                    <div className="flex items-center space-x-2 ml-2">
+                      <span className="text-xs font-semibold text-slate-400 font-mono mr-1">
                         {formatTime(song.duration)}
                       </span>
 
@@ -338,22 +410,156 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
                           onAddToQueue(song);
                         }}
                         title="Tambah ke Queue"
-                        className="p-2 rounded-xl glass-pill text-slate-400 hover:text-[#FFC107]"
+                        className="p-1.5 text-slate-400 hover:text-[#FFC107] transition-colors"
                       >
-                        <Plus size={14} />
+                        <Plus size={16} />
                       </button>
+
+                      {/* Remove Song from Custom Playlist Button */}
+                      {selectedPlaylist.type === 'custom' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveSongFromSelectedPlaylist(song.id);
+                          }}
+                          title="Hapus dari Playlist"
+                          className="p-1.5 text-slate-400 hover:text-rose-400 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
               })
             ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-3">
-                <Music2 size={48} className="text-slate-700" />
-                <p className="text-sm font-semibold">Playlist ini belum berisi lagu.</p>
+              <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-4">
+                <Disc size={56} className="text-slate-700 animate-spin-slow" />
+                <p className="text-sm font-bold text-slate-300">Playlist ini belum berisi lagu.</p>
+                {selectedPlaylist.type === 'custom' && (
+                  <button
+                    onClick={() => setIsSongPickerOpen(true)}
+                    className="flex items-center space-x-2 px-5 py-2.5 rounded-2xl bg-black text-[#FFC107] border-2 border-[#FFC107] font-bold text-xs shadow-lg shadow-[#FFC107]/25 hover:scale-105 active:scale-95 transition-all"
+                  >
+                    <Plus size={16} />
+                    <span>+ Tambah Lagu ke Playlist</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
+
+        {/* Modal: Pick Songs to Add to Selected Custom Playlist */}
+        {isSongPickerOpen && selectedPlaylist && selectedPlaylist.type === 'custom' && (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="glass-panel p-5 sm:p-6 rounded-3xl w-full max-w-xl space-y-4 border border-[#FFC107]/30 shadow-2xl flex flex-col max-h-[85vh]">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                <div>
+                  <h3 className="text-base font-extrabold text-white flex items-center space-x-2">
+                    <ListMusic size={20} className="text-[#FFC107]" />
+                    <span>Tambah Lagu ke {selectedPlaylist.title}</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">Pilih lagu dari library untuk dimasukkan ke playlist</p>
+                </div>
+                <button
+                  onClick={() => setIsSongPickerOpen(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Search Bar inside Picker */}
+              <div className="relative">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#FFC107]" />
+                <input
+                  type="text"
+                  placeholder="Cari lagu berdasarkan judul, artis, atau album..."
+                  value={songPickerQuery}
+                  onChange={(e) => setSongPickerQuery(e.target.value)}
+                  autoFocus
+                  className="w-full bg-slate-900 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FFC107]"
+                />
+              </div>
+
+              {/* Songs List */}
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[250px]">
+                {songs
+                  .filter(s => {
+                    if (!songPickerQuery.trim()) return true;
+                    const q = songPickerQuery.toLowerCase();
+                    return (
+                      (s.title && s.title.toLowerCase().includes(q)) ||
+                      (s.artist && s.artist.toLowerCase().includes(q)) ||
+                      (s.album && s.album.toLowerCase().includes(q)) ||
+                      (s.filename && s.filename.toLowerCase().includes(q))
+                    );
+                  })
+                  .slice(0, 100)
+                  .map(song => {
+                    const alreadyInPlaylist = selectedPlaylist.songs.some(ps => ps.id === song.id);
+                    return (
+                      <div
+                        key={song.id}
+                        className={`flex items-center justify-between p-2.5 rounded-2xl border transition-all ${
+                          alreadyInPlaylist
+                            ? 'bg-[#FFC107]/5 border-[#FFC107]/20 text-[#FFC107]'
+                            : 'bg-black/40 hover:bg-white/5 border-white/10 text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 rounded-xl bg-slate-950 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                            {song.has_cover ? (
+                              <img loading="lazy" src={`/api/cover/${song.id}`} alt={song.album} className="w-full h-full object-cover" />
+                            ) : (
+                              <Disc size={20} className="text-slate-700" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-xs sm:text-sm font-bold text-white truncate">{song.title || song.filename}</h4>
+                            <p className="text-[11px] text-slate-400 truncate">{song.artist || 'Unknown Artist'} • {song.album || 'Unknown Album'}</p>
+                          </div>
+                        </div>
+
+                        <div className="ml-2 flex-shrink-0">
+                          {alreadyInPlaylist ? (
+                            <button
+                              onClick={() => handleRemoveSongFromSelectedPlaylist(song.id)}
+                              className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors"
+                              title="Hapus dari Playlist"
+                            >
+                              <Check size={14} className="text-[#FFC107]" />
+                              <span>Ada (Hapus)</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleAddSongToSelectedPlaylist(song)}
+                              className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-black text-[#FFC107] border border-[#FFC107]/40 text-xs font-bold hover:bg-[#FFC107]/10 transition-all"
+                            >
+                              <Plus size={14} />
+                              <span>Tambah</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-2 border-t border-white/10 flex justify-end">
+                <button
+                  onClick={() => setIsSongPickerOpen(false)}
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-white transition-colors"
+                >
+                  Selesai
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -378,10 +584,10 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
         <div className="flex items-center space-x-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 text-xs [touch-action:pan-x]">
           {[
             { id: 'all', label: 'Semua' },
+            { id: 'custom', label: 'Custom' },
             { id: 'album', label: 'Album' },
             { id: 'artist', label: 'Artist' },
             { id: 'hires', label: 'Hi-Res' },
-            { id: 'custom', label: 'Custom' },
           ].map(filter => (
             <button
               key={filter.id}
@@ -426,7 +632,7 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
           <form onSubmit={handleCreatePlaylist} className="glass-panel p-6 rounded-3xl w-full max-w-md space-y-4 border border-[#FFC107]/30 shadow-2xl">
             <h3 className="text-base font-extrabold text-white flex items-center space-x-2">
               <FolderPlus size={20} className="text-[#FFC107]" />
-              <span>Buat Playlist Baru</span>
+              <span>Buat Playlist Custom Baru</span>
             </h3>
             <input
               type="text"
@@ -465,39 +671,40 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
                 onClick={() => openPlaylist(item)}
                 className="group relative flex flex-col bg-slate-900/40 hover:bg-slate-800/70 border border-white/10 hover:border-[#FFC107]/50 rounded-2xl p-3 cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-[#FFC107]/10 hover:-translate-y-1 backdrop-blur-sm"
               >
-                {/* Card Image Box */}
+                {/* 4-Grid Cover Image Box */}
                 <div className="w-full aspect-square rounded-xl bg-slate-950/80 border border-white/10 overflow-hidden relative mb-3 flex items-center justify-center shadow-inner">
-                  {item.coverSongId ? (
-                    <img
-                      loading="lazy"
-                      src={`/api/cover/${item.coverSongId}`}
-                      alt={item.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                  ) : (
-                    <Disc size={48} className="text-slate-700 group-hover:text-[#FFC107]/50 transition-colors" />
-                  )}
+                  <PlaylistCoverGrid
+                    coverSongIds={item.coverSongIds || (item.songs ? item.songs.filter(s => s.has_cover).slice(0, 4).map(s => s.id) : [])}
+                    fallbackIconSize={48}
+                  />
 
-                  {/* Hi-Res Badge Overlay */}
-                  {item.isHiRes && (
-                    <span className="absolute top-2 left-2 text-[9px] font-black px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 border border-purple-500/40 backdrop-blur-sm">
-                      24-BIT
-                    </span>
-                  )}
+                  {/* Badges Overlay */}
+                  <div className="absolute top-2 left-2 flex flex-col gap-1 pointer-events-none">
+                    {item.type === 'custom' && (
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-black text-[#FFC107] border border-[#FFC107]/50 backdrop-blur-md shadow-md">
+                        Custom
+                      </span>
+                    )}
+                    {item.isHiRes && (
+                      <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 border border-purple-500/40 backdrop-blur-sm">
+                        24-BIT
+                      </span>
+                    )}
+                  </div>
 
                   {/* Custom Playlist Delete Button */}
                   {item.type === 'custom' && (
                     <button
                       onClick={(e) => handleDeleteCustomPlaylist(e, item.id)}
                       title="Hapus Playlist"
-                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-rose-950/80 text-rose-400 border border-rose-500/40 opacity-0 group-hover:opacity-100 hover:bg-rose-600 hover:text-white transition-all"
+                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-rose-950/80 text-rose-400 border border-rose-500/40 opacity-0 group-hover:opacity-100 hover:bg-rose-600 hover:text-white transition-all z-10"
                     >
                       <Trash2 size={12} />
                     </button>
                   )}
 
                   {/* Hover Overlay Actions */}
-                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 backdrop-blur-[2px] transition-opacity duration-300 flex items-center justify-center space-x-3">
+                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 backdrop-blur-[2px] transition-opacity duration-300 flex items-center justify-center space-x-3 z-0">
                     <button
                       onClick={(e) => playPlaylist(item, e)}
                       title="Putar Playlist"
@@ -517,11 +724,13 @@ function SearchView({ songs, onPlayList, onAddToQueue, currentSong }) {
 
                 {/* Card Title & Info */}
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <h3 className="text-xs sm:text-sm font-extrabold text-white truncate group-hover:text-[#FFC107] transition-colors">
-                    {item.title}
-                  </h3>
+                  <div className="flex items-center space-x-1.5">
+                    <h3 className="text-xs sm:text-sm font-extrabold text-white truncate group-hover:text-[#FFC107] transition-colors">
+                      {item.title}
+                    </h3>
+                  </div>
                   <p className="text-[11px] text-slate-400 truncate">
-                    {item.artist || item.subtitle || `${item.songs.length} Lagu`}
+                    {item.artist || item.subtitle || `${item.songs ? item.songs.length : 0} Lagu`}
                   </p>
                   <p className="text-[10px] text-slate-500 font-medium">
                     {(item.song_count ?? (item.songs ? item.songs.length : 0))} Tracks
