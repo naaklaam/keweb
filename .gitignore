@@ -14,8 +14,10 @@ client/dist/
 
 # Binaries & Downloads
 bin/cloudflared
+bin/keweb-server
 
 # Local SQLite Database & Cover Art Cache
+data/
 server/data/
 *.sqlite
 *.db

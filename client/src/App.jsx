@@ -33,6 +33,7 @@ export default function App() {
   const [currentQueueIndex, setCurrentQueueIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [bufferedTime, setBufferedTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isShuffle, setIsShuffle] = useState(false);
@@ -146,7 +147,12 @@ export default function App() {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play().then(() => setIsPlaying(true)).catch(e => console.error(e));
+      const p = audioRef.current.play();
+      if (p !== undefined) {
+        p.then(() => setIsPlaying(true)).catch((e) => {
+          if (e.name !== 'AbortError') console.error(e);
+        });
+      }
     }
   }, [isPlaying]);
 
@@ -322,13 +328,48 @@ export default function App() {
 
   // Auto-play when currentSong changes
   useEffect(() => {
-    if (audioRef.current && currentSong) {
-      audioRef.current.src = `/api/stream/${currentSong.id}`;
-      audioRef.current.play()
+    if (!audioRef.current || !currentSong) return;
+
+    setBufferedTime(0);
+    setCurrentTime(0);
+
+    const audio = audioRef.current;
+    // Bersihkan audio engine sebelum assign track baru agar tidak race condition di browser
+    audio.pause();
+    audio.src = `/api/stream/${currentSong.id}`;
+    audio.load();
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise
         .then(() => setIsPlaying(true))
-        .catch(err => console.error('Playback error:', err));
+        .catch((err) => {
+          if (err.name === 'AbortError') {
+            // Normal jika user menekan Next berulang-ulang dengan cepat
+            return;
+          }
+          console.warn('Playback interrupted:', err.message);
+        });
     }
-  }, [currentQueueIndex]);
+  }, [currentQueueIndex, currentSong?.id]);
+
+  const updateBuffer = useCallback(() => {
+    if (audioRef.current && audioRef.current.buffered && audioRef.current.buffered.length > 0) {
+      const b = audioRef.current.buffered;
+      const cur = audioRef.current.currentTime;
+      let maxBuf = 0;
+      for (let i = 0; i < b.length; i++) {
+        if (b.start(i) <= cur && cur <= b.end(i)) {
+          maxBuf = b.end(i);
+          break;
+        }
+        if (b.end(i) > maxBuf) {
+          maxBuf = b.end(i);
+        }
+      }
+      setBufferedTime(maxBuf);
+    }
+  }, []);
 
   // ---- Mobile swipe navigation between views ----
   // Geser kiri -> bagian berikutnya, geser kanan -> bagian sebelumnya.
@@ -386,9 +427,11 @@ export default function App() {
         preload="auto"
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
+        onProgress={updateBuffer}
         onTimeUpdate={() => {
           if (audioRef.current) {
             setCurrentTime(audioRef.current.currentTime);
+            updateBuffer();
             if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession && duration > 0) {
               try {
                 navigator.mediaSession.setPositionState({
@@ -400,7 +443,13 @@ export default function App() {
             }
           }
         }}
-        onLoadedMetadata={() => setDuration(audioRef.current ? audioRef.current.duration : 0)}
+        onLoadedMetadata={() => {
+          setDuration(audioRef.current ? audioRef.current.duration : 0);
+          updateBuffer();
+        }}
+        onError={(e) => {
+          console.error("Audio playback error:", e, audioRef.current?.error);
+        }}
         onEnded={() => playNext(false)}
       />
 
@@ -465,6 +514,7 @@ export default function App() {
               isPlaying={isPlaying}
               audioRef={audioRef}
               currentTime={currentTime}
+              bufferedTime={bufferedTime}
               duration={duration}
               onSeek={onSeekTo}
               onAddToPlaylist={handleOpenAddToPlaylist}
@@ -498,6 +548,7 @@ export default function App() {
         playNext={handlePlayNextForKeypad}
         seek={seek}
         currentTime={currentTime}
+        bufferedTime={bufferedTime}
         duration={duration}
         onSeekTo={onSeekTo}
         isShuffle={isShuffle}

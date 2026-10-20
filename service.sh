@@ -20,12 +20,18 @@ start_service() {
 
   # Build frontend client if dist missing
   if [ ! -d "$DIR/client/dist" ]; then
-    echo "[1/2] Building client frontend..."
+    echo "[1/3] Building client frontend..."
     cd "$DIR/client" && npm run build
     cd "$DIR"
   fi
 
-  echo "[2/2] Reloading systemd & starting keweb.service + keweb-tunnel.service..."
+  # Build backend Go binary if missing
+  if [ ! -f "$DIR/bin/keweb-server" ]; then
+    echo "[2/3] Compiling keweb-server Go binary..."
+    (cd "$DIR/server-go" && go build -o "$DIR/bin/keweb-server" ./cmd/server)
+  fi
+
+  echo "[3/3] Reloading systemd & starting keweb.service + keweb-tunnel.service..."
   systemctl --user daemon-reload
   systemctl --user start keweb.service keweb-tunnel.service
 
@@ -42,11 +48,16 @@ stop_service() {
   systemctl --user stop keweb.service keweb-tunnel.service 2>/dev/null || true
   fuser -k "${PORT}/tcp" 2>/dev/null || true
   pkill -f "localtunnel" 2>/dev/null || true
+  rm -f "$DIR/data/server.lock" 2>/dev/null || true
   echo "[✓] keweb systemd services stopped."
 }
 
 restart_service() {
   echo "[Restart] Reloading & restarting keweb systemd services..."
+  if [ ! -f "$DIR/bin/keweb-server" ]; then
+    echo "[Build] Compiling keweb-server Go binary..."
+    (cd "$DIR/server-go" && go build -o "$DIR/bin/keweb-server" ./cmd/server)
+  fi
   systemctl --user daemon-reload
   systemctl --user restart keweb.service keweb-tunnel.service
   echo "[✓] keweb systemd services restarted."

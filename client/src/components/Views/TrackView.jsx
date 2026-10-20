@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Disc, Music2, FileText, Zap, ShieldCheck, Layers, RefreshCw, Plus } from 'lucide-react';
 import { parseLyrics, getActiveLyricIndex } from '../../utils/lrcParser';
 
-export default function TrackView({ song, isPlaying, audioRef, currentTime, duration, onSeek, onAddToPlaylist }) {
+export default function TrackView({ song, isPlaying, audioRef, currentTime, bufferedTime = 0, duration, onSeek, onAddToPlaylist }) {
   const [activeSubTab, setActiveSubTab] = useState('lyrics'); // 'lyrics' or 'specs'
   const [syncedLyricsData, setSyncedLyricsData] = useState(null);
   const [detailLyrics, setDetailLyrics] = useState(null);
@@ -107,6 +107,7 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
   }, [activeLyricIndex, activeSubTab]);
 
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const bufferedPercent = duration > 0 ? Math.min(100, (bufferedTime / duration) * 100) : 0;
 
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-8">
@@ -187,6 +188,11 @@ export default function TrackView({ song, isPlaying, audioRef, currentTime, dura
                   />
                   {/* Thread Track Background */}
                   <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full h-[2px] bg-white/20 rounded-full pointer-events-none" />
+                  {/* Buffer / Loaded Progress Bar (YouTube Music style) */}
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-white/40 rounded-full pointer-events-none transition-all duration-200"
+                    style={{ width: `${bufferedPercent}%` }}
+                  />
                   {/* Passed Progress Overlay Bar - Thread Thin Gold */}
                   <div
                     className="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-[#FFC107] rounded-full pointer-events-none transition-all duration-100 shadow-sm shadow-[#FFC107]/50"

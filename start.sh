@@ -27,8 +27,13 @@ fi
 # Kill any existing server on configured PORT
 fuser -k "${PORT}/tcp" 2>/dev/null || true
 
+# Compile Go backend if missing
+if [ ! -f "$DIR/bin/keweb-server" ]; then
+  (cd "$DIR/server-go" && go build -o "$DIR/bin/keweb-server" ./cmd/server)
+fi
+
 echo "[2/3] Starting backend server on port ${PORT}..."
-node "$DIR/server/src/index.js" &
+"$DIR/bin/keweb-server" &
 SERVER_PID=$!
 
 # Wait for server to respond on PORT

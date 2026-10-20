@@ -13,6 +13,7 @@ export default function VirtualKeypad({
   playNext,
   seek,
   currentTime,
+  bufferedTime = 0,
   duration,
   onSeekTo,
   isShuffle,
@@ -28,6 +29,7 @@ export default function VirtualKeypad({
   };
 
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const bufferedPercent = duration > 0 ? Math.min(100, (bufferedTime / duration) * 100) : 0;
 
   return (
     <footer className="px-4 py-2.5 space-y-2 bg-transparent backdrop-blur-sm">
@@ -47,6 +49,11 @@ export default function VirtualKeypad({
           />
           {/* Thread Track Background */}
           <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full h-[2px] bg-white/20 rounded-full pointer-events-none" />
+          {/* Buffer / Loaded Progress Bar (YouTube Music style) */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-white/40 rounded-full pointer-events-none transition-all duration-200"
+            style={{ width: `${bufferedPercent}%` }}
+          />
           {/* Passed Progress Overlay Bar - Thread Thin Gold */}
           <div
             className="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-[#FFC107] rounded-full pointer-events-none transition-all duration-100 shadow-sm shadow-[#FFC107]/50"
