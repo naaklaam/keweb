@@ -11,6 +11,17 @@ export function parseLyrics(rawLyrics, totalDuration = 0, offset = 0) {
   const rawLines = rawLyrics.split('\n').map(l => l.trim()).filter(Boolean);
   if (rawLines.length === 0) return [];
 
+  // Extract [offset: +/-ms] tag if present in LRC headers
+  let tagOffset = 0;
+  for (const line of rawLines) {
+    const offsetMatch = line.match(/^\[offset:\s*([+-]?\d+)\]/i);
+    if (offsetMatch) {
+      tagOffset = parseInt(offsetMatch[1], 10) / 1000;
+      break;
+    }
+  }
+  const effectiveOffset = offset + tagOffset;
+
   const timestampedLines = [];
   const lrcRegex = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
   let hasLrcTimestamps = false;
@@ -25,7 +36,7 @@ export function parseLyrics(rawLyrics, totalDuration = 0, offset = 0) {
           const min = parseInt(match[1], 10);
           const sec = parseInt(match[2], 10);
           const ms = match[3] ? parseInt(match[3].padEnd(3, '0'), 10) : 0;
-          const timeInSeconds = Math.max(0, min * 60 + sec + ms / 1000 + offset);
+          const timeInSeconds = Math.max(0, min * 60 + sec + ms / 1000 + effectiveOffset);
           timestampedLines.push({ time: timeInSeconds, text });
         }
       }

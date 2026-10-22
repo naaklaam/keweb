@@ -5,10 +5,19 @@ import {
 } from 'lucide-react';
 import PlaylistCoverGrid from '../Common/PlaylistCoverGrid';
 
-function SearchView({ songs = [], onPlayList, onAddToQueue, currentSong }) {
+function SearchView({
+  songs = [],
+  onPlayList,
+  onAddToQueue,
+  currentSong,
+  searchQuery = '',
+  setSearchQuery,
+}) {
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'album', 'artist', 'hires', 'custom'
-  const [searchQuery, setSearchQuery] = useState('');
+  const [internalQuery, setInternalQuery] = useState('');
+  const query = searchQuery !== undefined ? searchQuery : internalQuery;
+  const updateQuery = setSearchQuery || setInternalQuery;
   const [serverPlaylists, setServerPlaylists] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -147,12 +156,16 @@ function SearchView({ songs = [], onPlayList, onAddToQueue, currentSong }) {
     allItems = userPlaylists;
   }
 
-  if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase();
+  if (query.trim()) {
+    const q = query.toLowerCase();
     allItems = allItems.filter(item =>
       item.title.toLowerCase().includes(q) ||
       (item.artist && item.artist.toLowerCase().includes(q)) ||
-      (item.subtitle && item.subtitle.toLowerCase().includes(q))
+      (item.subtitle && item.subtitle.toLowerCase().includes(q)) ||
+      (item.songs && item.songs.some(s =>
+        (s.title && s.title.toLowerCase().includes(q)) ||
+        (s.artist && s.artist.toLowerCase().includes(q))
+      ))
     );
   }
 
@@ -566,22 +579,10 @@ function SearchView({ songs = [], onPlayList, onAddToQueue, currentSong }) {
 
   // Render Grid View of Playlists & Albums
   return (
-    <div className="flex flex-col h-full overflow-hidden p-4 md:p-6 space-y-4 max-w-6xl mx-auto w-full">
-      {/* Header & Filter Controls Bar */}
-      <div className="glass-panel p-4 sm:p-5 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Title & Stats */}
-        <div className="flex items-center space-x-3 w-full md:w-auto">
-          <div className="p-2.5 bg-black border border-[#FFC107]/40 rounded-2xl text-[#FFC107] shadow-sm">
-            <ListMusic size={22} />
-          </div>
-          <div>
-            <h2 className="text-base font-extrabold text-white tracking-tight">PLAYLIST & ALBUM COLLECTIONS</h2>
-            <p className="text-xs text-slate-400">{allItems.length} Koleksi tersedia</p>
-          </div>
-        </div>
-
-        {/* Filter Pills & Actions */}
-        <div className="flex items-center space-x-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 text-xs [touch-action:pan-x]">
+    <div className="flex flex-col h-full overflow-hidden px-4 md:px-8 py-2 md:py-3 space-y-3 max-w-7xl mx-auto w-full">
+      {/* Sleek Minimalist Filter Bar */}
+      <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 text-xs [touch-action:pan-x] flex-shrink-0">
+        <div className="flex items-center space-x-2">
           {[
             { id: 'all', label: 'Semua' },
             { id: 'custom', label: 'Custom' },
@@ -592,19 +593,24 @@ function SearchView({ songs = [], onPlayList, onAddToQueue, currentSong }) {
             <button
               key={filter.id}
               onClick={() => setActiveFilter(filter.id)}
-              className={`px-3.5 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+              className={`px-3.5 py-1.5 rounded-full transition-all whitespace-nowrap text-xs font-semibold ${
                 activeFilter === filter.id
-                  ? 'bg-black text-[#FFC107] border-2 border-[#FFC107] shadow-md shadow-[#FFC107]/20 font-bold'
-                  : 'bg-black/40 text-slate-400 border border-white/20 hover:text-white'
+                  ? 'bg-[#FFC107] text-black font-extrabold shadow-md shadow-[#FFC107]/20'
+                  : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 hover:border-white/20'
               }`}
             >
               {filter.label}
             </button>
           ))}
+        </div>
 
+        <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+          <span className="text-[11px] text-slate-400 font-medium hidden sm:inline-block">
+            {allItems.length} Koleksi
+          </span>
           <button
             onClick={() => setIsCreating(true)}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-black text-[#FFC107] border border-[#FFC107]/40 font-bold hover:bg-[#FFC107]/10 transition-all whitespace-nowrap shadow-sm"
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full bg-white/5 text-[#FFC107] border border-[#FFC107]/40 font-bold hover:bg-[#FFC107]/10 transition-all whitespace-nowrap shadow-sm text-xs"
           >
             <FolderPlus size={14} />
             <span>+ Playlist</span>
@@ -612,19 +618,18 @@ function SearchView({ songs = [], onPlayList, onAddToQueue, currentSong }) {
         </div>
       </div>
 
-      {/* Quick Search & Create Modal Row */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#FFC107]" />
-          <input
-            type="text"
-            placeholder="Cari album, playlist, atau artist..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-900/90 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FFC107]/60 transition-colors shadow-inner"
-          />
+      {/* Query Search Filter Feedback */}
+      {query.trim() && (
+        <div className="flex items-center justify-between text-xs text-slate-400 px-1 py-0.5 flex-shrink-0">
+          <span>Hasil pencarian untuk <span className="text-white font-semibold">"{query}"</span> ({allItems.length} ditemukan)</span>
+          <button
+            onClick={() => updateQuery('')}
+            className="text-[11px] text-[#FFC107] hover:underline font-semibold"
+          >
+            Hapus Filter
+          </button>
         </div>
-      </div>
+      )}
 
       {/* Modal Dialog: Create Playlist */}
       {isCreating && (
@@ -662,17 +667,17 @@ function SearchView({ songs = [], onPlayList, onAddToQueue, currentSong }) {
       )}
 
       {/* Playlist & Album Cards Grid */}
-      <div className="flex-1 overflow-y-auto pr-1">
+      <div className="flex-1 overflow-y-auto pr-1 scroll-fade-edge pt-2">
         {allItems.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 pb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5 sm:gap-4 md:gap-5 pb-8">
             {allItems.map((item) => (
               <div
                 key={item.id}
                 onClick={() => openPlaylist(item)}
-                className="group relative flex flex-col bg-slate-900/40 hover:bg-slate-800/70 border border-white/10 hover:border-[#FFC107]/50 rounded-2xl p-3 cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-[#FFC107]/10 hover:-translate-y-1 backdrop-blur-sm"
+                className="group relative flex flex-col cursor-pointer transition-all duration-300 hover:-translate-y-1"
               >
-                {/* 4-Grid Cover Image Box */}
-                <div className="w-full aspect-square rounded-xl bg-slate-950/80 border border-white/10 overflow-hidden relative mb-3 flex items-center justify-center shadow-inner">
+                {/* Cover Image Artwork (Frameless & Borderless Card) */}
+                <div className="w-full aspect-square rounded-2xl bg-slate-950/80 border border-white/10 overflow-hidden relative mb-2.5 flex items-center justify-center shadow-md group-hover:shadow-xl group-hover:border-white/30 transition-all duration-300">
                   <PlaylistCoverGrid
                     coverSongIds={item.coverSongIds || (item.songs ? item.songs.filter(s => s.has_cover).slice(0, 4).map(s => s.id) : [])}
                     fallbackIconSize={48}
@@ -723,12 +728,10 @@ function SearchView({ songs = [], onPlayList, onAddToQueue, currentSong }) {
                 </div>
 
                 {/* Card Title & Info */}
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <div className="flex items-center space-x-1.5">
-                    <h3 className="text-xs sm:text-sm font-extrabold text-white truncate group-hover:text-[#FFC107] transition-colors">
-                      {item.title}
-                    </h3>
-                  </div>
+                <div className="min-w-0 flex-1 space-y-0.5 px-0.5">
+                  <h3 className="text-xs sm:text-sm font-bold text-white truncate group-hover:text-[#FFC107] transition-colors">
+                    {item.title}
+                  </h3>
                   <p className="text-[11px] text-slate-400 truncate">
                     {item.artist || item.subtitle || `${item.songs ? item.songs.length : 0} Lagu`}
                   </p>
@@ -742,7 +745,17 @@ function SearchView({ songs = [], onPlayList, onAddToQueue, currentSong }) {
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-3">
             <Disc size={48} className="text-slate-700 animate-pulse" />
-            <p className="text-sm font-semibold">Tidak ada playlist atau album yang ditemukan.</p>
+            <p className="text-sm font-semibold">
+              {query.trim() ? `Tidak ada hasil untuk "${query}"` : 'Tidak ada playlist atau album yang ditemukan.'}
+            </p>
+            {query.trim() && (
+              <button
+                onClick={() => updateQuery('')}
+                className="text-xs px-3.5 py-1.5 rounded-full bg-white/5 text-[#FFC107] border border-[#FFC107]/30 hover:bg-[#FFC107]/10 transition-colors font-medium"
+              >
+                Reset Pencarian
+              </button>
+            )}
           </div>
         )}
       </div>

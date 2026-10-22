@@ -26,7 +26,7 @@ function isHorizontalScrollArea(touchTarget, containerEl) {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('library'); // 'playlist', 'library', 'track', 'search'
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [songs, setSongs] = useState([]);
   const [stats, setStats] = useState({});
   const [queue, setQueue] = useState([]);
@@ -38,6 +38,7 @@ export default function App() {
   const [volume, setVolume] = useState(1);
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState('off'); // 'off' | 'all' | 'one'
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Dynamic Theme Palette State
   const [themeStyle, setThemeStyle] = useState({
@@ -457,6 +458,10 @@ export default function App() {
       <TerminalHeader
         stats={stats}
         onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
 
       {/* Main Content Area with Collapsible SidebarNav */}
@@ -497,9 +502,11 @@ export default function App() {
             <LibraryView
               songs={songs}
               onPlaySong={handlePlaySong}
+              onPlayList={playFromList}
               onAddToQueue={handleAddToQueue}
               onAddToPlaylist={handleOpenAddToPlaylist}
               currentSong={currentSong}
+              searchQuery={searchQuery}
             />
           </div>
 
@@ -533,6 +540,8 @@ export default function App() {
               onPlayList={playFromList}
               onAddToQueue={handleAddToQueue}
               currentSong={currentSong}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
             />
           </div>
         </main>

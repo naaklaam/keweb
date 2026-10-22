@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -53,9 +54,11 @@ func NewRouter(db *sql.DB, sc *scanner.Scanner, coversDir, clientDistDir, defaul
 	// Scan
 	mux.HandleFunc("POST /api/scan", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			Dir string `json:"dir"`
+			Dir   string `json:"dir"`
+			Force bool   `json:"force"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
+		force := req.Force || r.URL.Query().Get("force") == "true"
 
 		targetDir := defaultMusicDir
 		if req.Dir != "" {
@@ -73,8 +76,8 @@ func NewRouter(db *sql.DB, sc *scanner.Scanner, coversDir, clientDistDir, defaul
 			return
 		}
 
-		logger.Info("SCAN", "Manual scan requested for: "+targetDir)
-		result, err := sc.Scan(targetDir)
+		logger.Info("SCAN", fmt.Sprintf("Manual scan requested for: %s (force=%v)", targetDir, force))
+		result, err := sc.Scan(targetDir, force)
 		if err != nil {
 			logger.Error("SCAN", "Scan failed", err)
 			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
